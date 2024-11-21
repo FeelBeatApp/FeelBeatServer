@@ -6,6 +6,8 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+// TODO: Implement ping pong
+
 const DEFAULT_OUT_BUFFER_SIZE = 256
 
 type Client struct {
