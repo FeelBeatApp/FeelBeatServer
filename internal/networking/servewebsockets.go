@@ -1,9 +1,11 @@
 package networking
 
 import (
-	"log"
 	"net/http"
+	"os"
 
+	"github.com/feelbeatapp/feelbeatserver/internal/component"
+	"github.com/feelbeatapp/feelbeatserver/internal/fblog"
 	"github.com/gorilla/websocket"
 )
 
@@ -15,13 +17,16 @@ var upgrader = websocket.Upgrader{
 
 func ServeWebsockets(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
+
+	fblog.Info(component.WebSocket, "received new connection", "ip", r.RemoteAddr)
+
 	if err != nil {
-		log.Printf("Origin: %v", r.Header)
-		log.Fatalf("Failed to upgrade connection: %v", err)
+		fblog.Error(component.WebSocket, "failed to upgrade connection", "ip", r.RemoteAddr)
+		os.Exit(1)
 		return
 	}
 
-	client := newClient(conn, hub.broadcast)
+	client := newClient(conn, hub.broadcast, hub.unregister)
 	hub.register <- client
 
 	go client.readLoop()

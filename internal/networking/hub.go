@@ -1,10 +1,13 @@
 package networking
 
-import "log/slog"
+import (
+	"github.com/feelbeatapp/feelbeatserver/internal/component"
+	"github.com/feelbeatapp/feelbeatserver/internal/fblog"
+)
 
 type Hub struct {
 	clients    map[*Client]bool
-	broadcast  chan []byte
+	broadcast  chan ClientMessage
 	register   chan *Client
 	unregister chan *Client
 }
@@ -12,7 +15,7 @@ type Hub struct {
 func NewHub() *Hub {
 	return &Hub{
 		clients:    make(map[*Client]bool),
-		broadcast:  make(chan []byte),
+		broadcast:  make(chan ClientMessage),
 		register:   make(chan *Client),
 		unregister: make(chan *Client),
 	}
@@ -23,20 +26,14 @@ func (h *Hub) Run() {
 		select {
 		case client := <-h.register:
 			h.clients[client] = true
-			slog.Info("Client registered")
+			fblog.Info(component.Hub, "new client registered")
 		case client := <-h.unregister:
 			delete(h.clients, client)
-			close(client.send)
-			slog.Info("Client left")
+			fblog.Info(component.Client, "client unregistered")
 		case message := <-h.broadcast:
-			slog.Info("Broadcasting", "msg", string(message))
 			for client := range h.clients {
-				select {
-
-				case client.send <- message:
-				default:
-					delete(h.clients, client)
-					close(client.send)
+				if client != message.from {
+					client.send <- message.payload
 				}
 			}
 		}

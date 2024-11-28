@@ -1,4 +1,4 @@
-module com.github.feelbeatapp.feelbeatserver
+module github.com/feelbeatapp/feelbeatserver
 
 go 1.23.1
 

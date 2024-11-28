@@ -1,8 +1,8 @@
 package networking
 
 import (
-	"log/slog"
-
+	"github.com/feelbeatapp/feelbeatserver/internal/component"
+	"github.com/feelbeatapp/feelbeatserver/internal/fblog"
 	"github.com/gorilla/websocket"
 )
 
@@ -11,16 +11,18 @@ import (
 const DEFAULT_OUT_BUFFER_SIZE = 256
 
 type Client struct {
-	broadcast chan<- []byte
-	conn      *websocket.Conn
-	send      chan []byte
+	broadcast  chan<- ClientMessage
+	unregister chan<- *Client
+	conn       *websocket.Conn
+	send       chan []byte
 }
 
-func newClient(conn *websocket.Conn, hubChannel chan []byte) *Client {
+func newClient(conn *websocket.Conn, hubChannel chan ClientMessage, unregister chan *Client) *Client {
 	return &Client{
-		broadcast: hubChannel,
-		conn:      conn,
-		send:      make(chan []byte, DEFAULT_OUT_BUFFER_SIZE),
+		broadcast:  hubChannel,
+		unregister: unregister,
+		conn:       conn,
+		send:       make(chan []byte, DEFAULT_OUT_BUFFER_SIZE),
 	}
 }
 
@@ -28,15 +30,26 @@ func (c *Client) readLoop() {
 	defer c.conn.Close()
 
 	for {
-		_, message, err := c.conn.ReadMessage()
+		msgType, message, err := c.conn.ReadMessage()
 		if err != nil {
-			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-				slog.Error("Error", "err", err)
+			if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+				fblog.Info(component.Client, "client closed connection", "ip", c.conn.RemoteAddr())
+			} else {
+				fblog.Error(component.Client, "Received unexpected error from client", "err", err)
 			}
+			c.unregister <- c
 			break
 		}
 
-		c.broadcast <- message
+		switch msgType {
+		case websocket.TextMessage:
+			c.broadcast <- ClientMessage{
+				from:    c,
+				payload: message,
+			}
+		default:
+			fblog.Warn(component.Client, "ignoring message", "type", msgType, "msg", message)
+		}
 	}
 }
 
@@ -46,28 +59,23 @@ func (c *Client) sendLoop() {
 	for {
 		message, ok := <-c.send
 		if !ok {
-			err := c.conn.WriteMessage(websocket.CloseMessage, []byte{})
-			if err != nil {
-				slog.Error("Error", "err", err)
-			}
-
+			fblog.Info(component.Client, "server is closing connection", "with", c.conn.RemoteAddr())
 			return
 		}
 
-		w, err := c.conn.NextWriter(websocket.TextMessage)
+		err := c.conn.WriteMessage(websocket.TextMessage, message)
+
 		if err != nil {
-			slog.Error("Error", "err", err)
-			return
-		}
-
-		_, err = w.Write(message)
-		if err != nil {
-			slog.Error("Error", "err", err)
-		}
-
-		if err = w.Close(); err != nil {
-			slog.Error("Error", "err", err)
-			return
+			fblog.Error(component.Client, "error when sending message", "msg", message)
 		}
 	}
+}
+
+func (c *Client) Close() {
+	err := c.conn.WriteMessage(websocket.CloseMessage, []byte{})
+	if err != nil {
+		fblog.Error(component.Client, "couldn't properly close connection", "err", err)
+	}
+
+	close(c.send)
 }
