@@ -27,7 +27,7 @@ func ServeWebsockets(hub *Hub, w http.ResponseWriter, r *http.Request) {
 	}
 
 	client := newClient(conn, hub.broadcast, hub.unregister)
-	hub.register <- client
+	hub.RegisterClient(client)
 
 	go client.readLoop()
 	go client.sendLoop()

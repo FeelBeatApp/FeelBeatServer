@@ -1,6 +1,6 @@
 package networking
 
 type ClientMessage struct {
-	from    *Client
-	payload []byte
+	From    HubClient
+	Payload []byte
 }
