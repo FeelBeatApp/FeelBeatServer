@@ -5,15 +5,7 @@ import (
 	"github.com/feelbeatapp/feelbeatserver/internal/fblog"
 )
 
-type HubClient interface {
-	Send([]byte)
-	// Closes with notifing client
-	Close()
-	// Closes immediately without sending any closing message
-	CloseNow()
-}
-
-type Hub struct {
+type BasicHub struct {
 	clients    map[HubClient]bool
 	broadcast  chan ClientMessage
 	register   chan HubClient
@@ -21,8 +13,8 @@ type Hub struct {
 	exit       chan bool
 }
 
-func NewHub() *Hub {
-	return &Hub{
+func NewHub() *BasicHub {
+	return &BasicHub{
 		clients:    make(map[HubClient]bool),
 		broadcast:  make(chan ClientMessage),
 		register:   make(chan HubClient),
@@ -31,7 +23,7 @@ func NewHub() *Hub {
 	}
 }
 
-func (h *Hub) Run() {
+func (h *BasicHub) Run() {
 	defer func() {
 		for c := range h.clients {
 			c.Close()
@@ -63,18 +55,18 @@ func (h *Hub) Run() {
 	}
 }
 
-func (h *Hub) RegisterClient(client HubClient) {
+func (h *BasicHub) RegisterClient(client HubClient) {
 	h.register <- client
 }
 
-func (h *Hub) Broadcast(message ClientMessage) {
+func (h *BasicHub) Broadcast(message ClientMessage) {
 	h.broadcast <- message
 }
 
-func (h *Hub) UnregisterClient(client HubClient) {
+func (h *BasicHub) UnregisterClient(client HubClient) {
 	h.unregister <- client
 }
 
-func (h *Hub) Stop() {
+func (h *BasicHub) Stop() {
 	h.exit <- true
 }

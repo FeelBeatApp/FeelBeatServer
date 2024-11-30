@@ -19,18 +19,16 @@ const (
 )
 
 type Client struct {
-	broadcast  chan<- ClientMessage
-	unregister chan<- HubClient
-	conn       *websocket.Conn
-	send       chan []byte
+	hub  Hub
+	conn *websocket.Conn
+	send chan []byte
 }
 
-func newClient(conn *websocket.Conn, hubChannel chan ClientMessage, unregister chan HubClient) *Client {
+func newClient(conn *websocket.Conn, hub Hub) *Client {
 	return &Client{
-		broadcast:  hubChannel,
-		unregister: unregister,
-		conn:       conn,
-		send:       make(chan []byte, defaultOutBufferSize),
+		hub:  hub,
+		conn: conn,
+		send: make(chan []byte, defaultOutBufferSize),
 	}
 }
 
@@ -43,7 +41,7 @@ func (c *Client) setPongDeadline() {
 
 func (c *Client) readLoop() {
 	defer func() {
-		c.unregister <- c
+		c.hub.UnregisterClient(c)
 		c.conn.Close()
 	}()
 
@@ -66,10 +64,10 @@ func (c *Client) readLoop() {
 
 		switch msgType {
 		case websocket.TextMessage:
-			c.broadcast <- ClientMessage{
+			c.hub.Broadcast(ClientMessage{
 				From:    c,
 				Payload: message,
-			}
+			})
 		default:
 			fblog.Warn(component.Client, "ignoring message", "type", msgType, "msg", message)
 		}

@@ -15,7 +15,7 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func ServeWebsockets(hub *Hub, w http.ResponseWriter, r *http.Request) {
+func ServeWebsockets(hub *BasicHub, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 
 	fblog.Info(component.WebSocket, "received new connection", "ip", r.RemoteAddr)
@@ -26,7 +26,7 @@ func ServeWebsockets(hub *Hub, w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	client := newClient(conn, hub.broadcast, hub.unregister)
+	client := newClient(conn, hub)
 	hub.RegisterClient(client)
 
 	go client.readLoop()
