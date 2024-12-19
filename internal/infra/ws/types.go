@@ -1,4 +1,4 @@
-package networking
+package ws
 
 type Hub interface {
 	RegisterClient(HubClient)

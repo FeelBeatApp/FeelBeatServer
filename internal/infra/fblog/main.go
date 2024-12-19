@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"github.com/feelbeatapp/feelbeatserver/internal/component"
+	"github.com/feelbeatapp/feelbeatserver/internal/lib/component"
 	"github.com/lmittmann/tint"
 )
 

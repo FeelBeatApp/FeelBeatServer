@@ -1,11 +1,10 @@
-package networking_test
+package ws_test
 
 import (
-	"fmt"
 	"testing"
 	"time"
 
-	"github.com/feelbeatapp/feelbeatserver/internal/networking"
+	"github.com/feelbeatapp/feelbeatserver/internal/infra/ws"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -22,9 +21,7 @@ func newFakeClient() *FakeClient {
 }
 
 func (c *FakeClient) Send(payload []byte) {
-	fmt.Println("Let's go I'm really sending sht")
 	c.payloads = append(c.payloads, payload)
-	fmt.Println(c.payloads)
 }
 
 func (c *FakeClient) CloseNow() {
@@ -39,7 +36,7 @@ const testMessage = "hi there"
 
 func TestHubBroadcastsMessages(t *testing.T) {
 	assert := assert.New(t)
-	hub := networking.NewHub()
+	hub := ws.NewHub()
 
 	go hub.Run()
 
@@ -49,7 +46,7 @@ func TestHubBroadcastsMessages(t *testing.T) {
 		hub.RegisterClient(clients[i])
 	}
 
-	hub.Broadcast(networking.ClientMessage{
+	hub.Broadcast(ws.ClientMessage{
 		From:    clients[0],
 		Payload: []byte(testMessage),
 	})

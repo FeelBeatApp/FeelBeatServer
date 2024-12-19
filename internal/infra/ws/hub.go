@@ -1,8 +1,8 @@
-package networking
+package ws
 
 import (
-	"github.com/feelbeatapp/feelbeatserver/internal/component"
-	"github.com/feelbeatapp/feelbeatserver/internal/fblog"
+	"github.com/feelbeatapp/feelbeatserver/internal/lib/component"
+	"github.com/feelbeatapp/feelbeatserver/internal/infra/fblog"
 )
 
 type BasicHub struct {

@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/feelbeatapp/feelbeatserver/internal/component"
-	"github.com/feelbeatapp/feelbeatserver/internal/fblog"
-	"github.com/feelbeatapp/feelbeatserver/internal/networking"
+	"github.com/feelbeatapp/feelbeatserver/internal/lib/component"
+	"github.com/feelbeatapp/feelbeatserver/internal/infra/fblog"
+	"github.com/feelbeatapp/feelbeatserver/internal/infra/ws"
 	"github.com/knadh/koanf/v2"
 )
 
@@ -32,11 +32,11 @@ func main() {
 	port := config.MustInt("websocket.port")
 	path := config.MustString("websocket.path")
 
-	hub := networking.NewHub()
+	hub := ws.NewHub()
 	go hub.Run()
 
 	http.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
-		networking.ServeWebsockets(hub, w, r)
+		ws.ServeWebsockets(hub, w, r)
 	})
 
 	fblog.Info(component.FeelBeatServer, "Server started", "port", port)

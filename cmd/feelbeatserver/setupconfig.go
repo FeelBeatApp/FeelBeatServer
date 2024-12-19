@@ -5,8 +5,8 @@ import (
 	"io/fs"
 	"strings"
 
-	"github.com/feelbeatapp/feelbeatserver/internal/component"
-	"github.com/feelbeatapp/feelbeatserver/internal/fblog"
+	"github.com/feelbeatapp/feelbeatserver/internal/lib/component"
+	"github.com/feelbeatapp/feelbeatserver/internal/infra/fblog"
 	"github.com/knadh/koanf/parsers/toml"
 	"github.com/knadh/koanf/providers/env"
 	"github.com/knadh/koanf/providers/file"
