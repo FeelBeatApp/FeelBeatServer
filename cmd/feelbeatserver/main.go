@@ -13,8 +13,8 @@ import (
 )
 
 const (
-	ENV_PREFIX = "FEELBEAT_"
-	TOML_PATH  = "config.toml"
+	envPrefix = "FEELBEAT_"
+	tomlPath  = "config.toml"
 )
 
 func main() {

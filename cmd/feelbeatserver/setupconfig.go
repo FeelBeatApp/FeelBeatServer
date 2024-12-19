@@ -14,7 +14,7 @@ import (
 )
 
 func setupConfig(config *koanf.Koanf) error {
-	err := config.Load(file.Provider(TOML_PATH), toml.Parser())
+	err := config.Load(file.Provider(tomlPath), toml.Parser())
 
 	if err != nil {
 		if !errors.Is(err, fs.ErrNotExist) {
@@ -26,8 +26,8 @@ func setupConfig(config *koanf.Koanf) error {
 		fblog.Info(component.Config, "config file loaded")
 	}
 
-	envProvider := env.Provider(ENV_PREFIX, ".", func(key string) string {
-		envvar := strings.ToLower(strings.TrimPrefix(key, ENV_PREFIX))
+	envProvider := env.Provider(envPrefix, ".", func(key string) string {
+		envvar := strings.ToLower(strings.TrimPrefix(key, envPrefix))
 
 		return strings.ReplaceAll(envvar, "_", ".")
 	})
