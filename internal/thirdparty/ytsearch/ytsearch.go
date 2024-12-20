@@ -1,6 +1,7 @@
 package ytsearch
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 )
 
 const ytBaseUrl = "https://www.youtube.com/results?search_query="
+const loopSearchTreshold = 5
 
 func fetchRawPage(query string) ([]byte, error) {
 	res, err := http.DefaultClient.Get(ytBaseUrl + url.QueryEscape(query))
@@ -36,22 +38,25 @@ func extractJsonContent(rawHtml []byte) string {
 
 }
 
-func searchVideosInJson(jsonString string) []byte {
-	index := 0
-
-	for {
+func searchVideosInJson(jsonString string) ([]byte, error) {
+	for index := 0; index < 5; index++ {
 		vidoes, _, _, err := jsonparser.Get([]byte(jsonString), fmt.Sprintf("[%d]", index), "itemSectionRenderer", "contents")
 		if err == nil {
-			return vidoes
+			return vidoes, nil
 		}
 
 		index++
 	}
+
+	return nil, errors.New("Couldn't find results in youtube response")
 }
 
 func parseJson(jsonString string) ([]SearchResult, error) {
 	videosSection, _, _, err := jsonparser.Get([]byte(jsonString), "contents", "twoColumnSearchResultsRenderer", "primaryContents", "sectionListRenderer", "contents")
-	videosListJson := searchVideosInJson(string(videosSection))
+	if err != nil {
+		return nil, err
+	}
+	videosListJson, err := searchVideosInJson(string(videosSection))
 	if err != nil {
 		return nil, err
 	}

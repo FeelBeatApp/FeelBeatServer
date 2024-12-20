@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	result, err := ytsearch.Search("System of a down Aerials")
+	result, err := ytsearch.Search("Paris platynov freestyle")
 	if err != nil {
 		log.Fatal(err)
 	}
