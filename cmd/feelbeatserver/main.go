@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/feelbeatapp/feelbeatserver/internal/lib/component"
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/fblog"
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/ws"
+	"github.com/feelbeatapp/feelbeatserver/internal/lib/component"
 	"github.com/knadh/koanf/v2"
 )
 
