@@ -1,4 +1,4 @@
-package ytsearch
+package youtube
 
 import (
 	"errors"
@@ -12,6 +12,12 @@ import (
 
 	"github.com/buger/jsonparser"
 )
+
+type SearchResult struct {
+	VideoId  string
+	Title    string
+	Duration time.Duration
+}
 
 const ytBaseUrl = "https://www.youtube.com/results?search_query="
 const loopSearchTreshold = 5
@@ -39,7 +45,7 @@ func extractJsonContent(rawHtml []byte) string {
 }
 
 func searchVideosInJson(jsonString string) ([]byte, error) {
-	for index := 0; index < 5; index++ {
+	for index := 0; index < loopSearchTreshold; index++ {
 		vidoes, _, _, err := jsonparser.Get([]byte(jsonString), fmt.Sprintf("[%d]", index), "itemSectionRenderer", "contents")
 		if err == nil {
 			return vidoes, nil
