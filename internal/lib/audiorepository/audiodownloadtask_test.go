@@ -54,6 +54,7 @@ func TestSingleListenerSuccess(t *testing.T) {
 	task.startDownload(targetPath)
 
 	assert.NoError(testutils.WaitTimeout(&wg, commonTimeout))
+	downloader.m.AssertExpectations(t)
 }
 
 func TestSingleListenerExternalError(t *testing.T) {
@@ -81,6 +82,7 @@ func TestSingleListenerExternalError(t *testing.T) {
 	task.startDownload(targetPath)
 
 	assert.NoError(testutils.WaitTimeout(&wg, commonTimeout))
+	downloader.m.AssertExpectations(t)
 }
 
 func TestSingleListenerCancel(t *testing.T) {
@@ -107,6 +109,7 @@ func TestSingleListenerCancel(t *testing.T) {
 	cancel()
 
 	assert.NoError(testutils.WaitTimeout(&wg, commonTimeout))
+	downloader.m.AssertExpectations(t)
 }
 
 func TestMultiListenersPartialCancel(t *testing.T) {
@@ -156,4 +159,103 @@ func TestMultiListenersPartialCancel(t *testing.T) {
 	for i := 3 + cancelCount; i < cancelCount+successCount; i++ {
 		assert.True(successMap[i], "%v", i)
 	}
+
+	downloader.m.AssertExpectations(t)
+}
+
+func TestMultiListenersUpdates(t *testing.T) {
+	assert := assert.New(t)
+	targetPath := "<path>"
+	downloader := newDownloaderStub()
+	updates1 := make([]float64, 0)
+	updates2 := make([]float64, 0)
+	updates3 := make([]float64, 0)
+
+	task := newAudioDownloadTask("multi update", downloader)
+	ctx1, cancel1 := context.WithCancel(context.Background())
+
+	var wg sync.WaitGroup
+	goWrite := make(chan bool)
+	goRead := make(chan bool)
+
+	wg.Add(2)
+	err := task.registerListener(&downloadListener{
+		ctx: ctx1,
+		onUpdate: func(progress float64) {
+			updates1 = append(updates1, progress)
+		},
+		onCompleted: func(path string, err error) {
+			wg.Done()
+		},
+	})
+	assert.Nil(err)
+	err = task.registerListener(&downloadListener{
+		ctx: context.Background(),
+		onUpdate: func(progress float64) {
+			updates2 = append(updates2, progress)
+		},
+		onCompleted: func(path string, err error) {
+			wg.Done()
+		},
+	})
+	assert.Nil(err)
+	err = task.registerListener(&downloadListener{
+		ctx: context.Background(),
+		onUpdate: func(progress float64) {
+			updates3 = append(updates3, progress)
+		},
+		onCompleted: func(path string, err error) {
+			wg.Done()
+		},
+	})
+	assert.Nil(err)
+
+	downloader.m.On("Download", mock.Anything, mock.Anything).Once().After(time.Millisecond * 5).
+		Run(func(args mock.Arguments) {
+			req := args.Get(1).(downloadRequest)
+			assert.NotNil(req.onUpdate)
+
+			<-goWrite
+			req.onUpdate(10)
+			goRead <- true
+			<-goWrite
+			req.onUpdate(25.24)
+			goRead <- true
+			<-goWrite
+			req.onUpdate(80)
+			goRead <- true
+		}).Return(nil)
+
+	task.startDownload(targetPath)
+
+	assert.Empty(updates1)
+	assert.Empty(updates2)
+	assert.Empty(updates3)
+
+	goWrite <- true
+	<-goRead
+
+	assert.Equal([]float64{10}, updates1)
+	assert.Equal([]float64{10}, updates2)
+	assert.Equal([]float64{10}, updates3)
+
+	cancel1()
+	time.Sleep(time.Millisecond * 5) // Wait for cancel being processed
+	goWrite <- true
+	<-goRead
+
+	assert.Equal([]float64{10}, updates1)
+	assert.Equal([]float64{10, 25.24}, updates2)
+	assert.Equal([]float64{10, 25.24}, updates3)
+
+	goWrite <- true
+	<-goRead
+
+	assert.Equal([]float64{10}, updates1)
+	assert.Equal([]float64{10, 25.24, 80}, updates2)
+	assert.Equal([]float64{10, 25.24, 80}, updates3)
+
+	assert.NoError(testutils.WaitTimeout(&wg, commonTimeout))
+
+	downloader.m.AssertExpectations(t)
 }

@@ -31,19 +31,17 @@ type audioDownloadTask struct {
 	downloader audioDownloader
 	outputPath string
 
-	listeners       map[*downloadListener]chan bool
-	progressUpdates chan float64
-	downloadCtx     context.Context
-	cancelDownload  context.CancelFunc
+	listeners      map[*downloadListener]chan bool
+	downloadCtx    context.Context
+	cancelDownload context.CancelFunc
 }
 
 func newAudioDownloadTask(spotifyId string, downloader audioDownloader) *audioDownloadTask {
 	return &audioDownloadTask{
-		spotifyId:       spotifyId,
-		state:           idle,
-		downloader:      downloader,
-		listeners:       make(map[*downloadListener]chan bool),
-		progressUpdates: make(chan float64),
+		spotifyId:  spotifyId,
+		state:      idle,
+		downloader: downloader,
+		listeners:  make(map[*downloadListener]chan bool),
 	}
 }
 
@@ -69,15 +67,24 @@ func (t *audioDownloadTask) downloadProcess() {
 	err := t.downloader.Download(t.downloadCtx, downloadRequest{
 		spotifyId: t.spotifyId,
 		path:      t.outputPath,
+		onUpdate:  t.passProgressToListeners,
 	})
 
 	t.mu.Lock()
 	t.state = finished
-	close(t.progressUpdates)
 	t.mu.Unlock()
 
 	t.handleFinish(err)
 	fblog.Info(component.AudioDownloadTask, "download finished", "id", t.spotifyId)
+}
+
+func (t *audioDownloadTask) passProgressToListeners(progress float64) {
+	fblog.Info(component.AudioDownloadTask, "passing update to listeners", "id", t.spotifyId, "progress", progress)
+	for _, l := range t.pullListenersSafely() {
+		if l.onUpdate != nil {
+			l.onUpdate(progress)
+		}
+	}
 }
 
 func (t *audioDownloadTask) handleFinish(err error) {
@@ -93,11 +100,12 @@ func (t *audioDownloadTask) handleFinish(err error) {
 	}
 }
 
-func (t *audioDownloadTask) handleListenerCancel(listener *downloadListener, end <-chan bool) {
+func (t *audioDownloadTask) handleCancellation(listener *downloadListener, end <-chan bool) {
 	select {
 	case <-end:
 	case <-listener.ctx.Done():
 		t.removeListener(listener)
+		return
 	}
 }
 
@@ -123,7 +131,7 @@ func (t *audioDownloadTask) registerListener(listener *downloadListener) error {
 	}
 
 	t.listeners[listener] = make(chan bool)
-	go t.handleListenerCancel(listener, t.listeners[listener])
+	go t.handleCancellation(listener, t.listeners[listener])
 
 	return nil
 }
