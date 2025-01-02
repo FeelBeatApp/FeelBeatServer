@@ -6,6 +6,8 @@ const (
 	WebSocket = "websocket"
 	Client = "client"
 	Hub = "hub"
+	Api = "api"
+	Auth = "auth"
 
 	AudioDownloadTask = "audiodownloadtask"
 )

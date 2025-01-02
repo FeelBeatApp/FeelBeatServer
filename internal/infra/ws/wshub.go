@@ -5,7 +5,7 @@ import (
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/fblog"
 )
 
-type BasicHub struct {
+type WSHub struct {
 	clients    map[HubClient]bool
 	broadcast  chan ClientMessage
 	register   chan HubClient
@@ -13,8 +13,8 @@ type BasicHub struct {
 	exit       chan bool
 }
 
-func NewHub() *BasicHub {
-	return &BasicHub{
+func NewHub() *WSHub {
+	return &WSHub{
 		clients:    make(map[HubClient]bool),
 		broadcast:  make(chan ClientMessage),
 		register:   make(chan HubClient),
@@ -23,7 +23,7 @@ func NewHub() *BasicHub {
 	}
 }
 
-func (h *BasicHub) Run() {
+func (h *WSHub) Run() {
 	defer func() {
 		for c := range h.clients {
 			c.Close()
@@ -55,18 +55,18 @@ func (h *BasicHub) Run() {
 	}
 }
 
-func (h *BasicHub) RegisterClient(client HubClient) {
+func (h *WSHub) RegisterClient(client HubClient) {
 	h.register <- client
 }
 
-func (h *BasicHub) Broadcast(message ClientMessage) {
+func (h *WSHub) Broadcast(message ClientMessage) {
 	h.broadcast <- message
 }
 
-func (h *BasicHub) UnregisterClient(client HubClient) {
+func (h *WSHub) UnregisterClient(client HubClient) {
 	h.unregister <- client
 }
 
-func (h *BasicHub) Stop() {
+func (h *WSHub) Stop() {
 	h.exit <- true
 }

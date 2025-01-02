@@ -15,7 +15,7 @@ var upgrader = websocket.Upgrader{
 	},
 }
 
-func ServeWebsockets(hub *BasicHub, w http.ResponseWriter, r *http.Request) {
+func ServeWebsockets(hub *WSHub, w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 
 	fblog.Info(component.WebSocket, "received new connection", "ip", r.RemoteAddr)
