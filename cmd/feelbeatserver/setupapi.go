@@ -11,12 +11,14 @@ type Authorizer interface {
 	authorize()
 }
 
+const baseUrl = "/api/v1"
+
 func setupAPI(authWrapper auth.AuthWrapper) {
-	handlers := []func(auth.AuthWrapper){handlers.ServeCreateGame}
+	handlers := []func(string, auth.AuthWrapper){handlers.ServeCreateGame}
 
 	fblog.Info(component.Api, "Setting up REST API", "handlers count", len(handlers))
 
 	for _, f := range handlers {
-		f(authWrapper)
+		f(baseUrl, authWrapper)
 	}
 }

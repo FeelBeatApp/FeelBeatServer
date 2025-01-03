@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/api"
@@ -13,6 +15,10 @@ type createGamePayload struct {
 	Test string `json:"test"`
 }
 
+type createGameResponse struct {
+	RoomId string `json:"roomId"`
+}
+
 func createGameHandler(userId string, res http.ResponseWriter, req *http.Request) {
 	var payload createGamePayload
 	err := api.ParseBody(req.Body, &payload)
@@ -22,7 +28,16 @@ func createGameHandler(userId string, res http.ResponseWriter, req *http.Request
 		return
 	}
 
-	_, err = res.Write([]byte("Endpoint hit!, Auth success, You are: " + userId))
+	resJson, err := json.Marshal(createGameResponse{
+		RoomId: "haha it's room id",
+	})
+	if err != nil {
+		api.LogApiError("Couldn't encode response", err, userId, req)
+		return
+	}
+
+	res.Header().Set("Content-Type", "application/json")
+	_, err = res.Write(resJson)
 	if err != nil {
 		api.LogApiError("Couldn't write response", err, userId, req)
 		return
@@ -31,6 +46,6 @@ func createGameHandler(userId string, res http.ResponseWriter, req *http.Request
 	api.LogApiCall(userId, req)
 }
 
-func ServeCreateGame(authWrapper auth.AuthWrapper) {
-	http.HandleFunc("/api/v1/create", authWrapper(createGameHandler))
+func ServeCreateGame(baseUrl string, authWrapper auth.AuthWrapper) {
+	http.HandleFunc(fmt.Sprintf("%s/create", baseUrl), authWrapper(createGameHandler))
 }
