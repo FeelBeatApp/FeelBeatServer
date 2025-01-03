@@ -6,9 +6,11 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/feelbeatapp/feelbeatserver/internal/infra/auth"
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/fblog"
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/ws"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/component"
+	"github.com/feelbeatapp/feelbeatserver/internal/lib/roomrepository"
 	"github.com/knadh/koanf/v2"
 )
 
@@ -38,6 +40,8 @@ func main() {
 	http.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 		ws.ServeWebsockets(hub, w, r)
 	})
+
+	setupAPI(auth.AuthorizeThroughSpotify, roomrepository.NewInMemoryRoomRepository())
 
 	fblog.Info(component.FeelBeatServer, "Server started", "port", port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("localhost:%d", port), nil))
