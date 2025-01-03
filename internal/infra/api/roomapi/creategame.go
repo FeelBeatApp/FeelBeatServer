@@ -1,7 +1,8 @@
-package handlers
+package roomapi
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 
@@ -9,18 +10,16 @@ import (
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/auth"
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/fblog"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/component"
+	"github.com/feelbeatapp/feelbeatserver/internal/lib/feelbeaterror"
+	"github.com/feelbeatapp/feelbeatserver/internal/lib/room"
 )
-
-type createGamePayload struct {
-	Test string `json:"test"`
-}
 
 type createGameResponse struct {
 	RoomId string `json:"roomId"`
 }
 
-func createGameHandler(userId string, res http.ResponseWriter, req *http.Request) {
-	var payload createGamePayload
+func (r RoomApi) createGameHandler(userId string, res http.ResponseWriter, req *http.Request) {
+	var payload room.RoomSettings
 	err := api.ParseBody(req.Body, &payload)
 	if err != nil {
 		http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
@@ -28,8 +27,21 @@ func createGameHandler(userId string, res http.ResponseWriter, req *http.Request
 		return
 	}
 
+	roomId, err := r.roomRepo.CreateRoom(userId, payload)
+	if err != nil {
+		var fbError *feelbeaterror.FeelBeatError
+		if errors.As(err, &fbError) {
+			http.Error(res, string(fbError.UserMessage), feelbeaterror.StatusCode(fbError.UserMessage))
+		} else {
+			http.Error(res, feelbeaterror.Default, feelbeaterror.StatusCode(feelbeaterror.Default))
+		}
+
+		api.LogApiError("Create room failed", err, userId, req)
+		return
+	}
+
 	resJson, err := json.Marshal(createGameResponse{
-		RoomId: "haha it's room id",
+		RoomId: roomId,
 	})
 	if err != nil {
 		api.LogApiError("Couldn't encode response", err, userId, req)
@@ -46,6 +58,6 @@ func createGameHandler(userId string, res http.ResponseWriter, req *http.Request
 	api.LogApiCall(userId, req)
 }
 
-func ServeCreateGame(baseUrl string, authWrapper auth.AuthWrapper) {
-	http.HandleFunc(fmt.Sprintf("%s/create", baseUrl), authWrapper(createGameHandler))
+func (r RoomApi) ServeCreateGame(baseUrl string, authWrapper auth.AuthWrapper) {
+	http.HandleFunc(fmt.Sprintf("%s/create", baseUrl), authWrapper(r.createGameHandler))
 }

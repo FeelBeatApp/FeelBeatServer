@@ -8,6 +8,8 @@ import (
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/api"
 )
 
+// TODO: Rethink error handling in GetUserId
+
 func GetUserId(token string) (string, error) {
 	req, err := newGetApiCall("/me", token)
 	if err != nil {
