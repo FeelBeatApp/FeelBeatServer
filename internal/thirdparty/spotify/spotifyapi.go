@@ -1,47 +1,79 @@
 package spotify
 
 import (
+	"encoding/json"
 	"fmt"
-	"io"
-	"log"
 	"net/http"
+	"strings"
 	"time"
 
-	"github.com/buger/jsonparser"
+	"github.com/feelbeatapp/feelbeatserver/internal/infra/api"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib"
+	"github.com/feelbeatapp/feelbeatserver/internal/lib/feelbeaterror"
 )
 
-func FetchSongDetails(spotifyId string, token string) {
-	url := fmt.Sprintf("https://api.spotify.com/v1/tracks/%s", spotifyId)
-	req, err := http.NewRequest("GET", url, nil)
+type SpotifyApi struct {
+}
+
+func (s SpotifyApi) FetchPlaylistSongs(plalistId string, token string) ([]lib.Song, error) {
+	url := fmt.Sprintf("/playlists/%s?additional_types=track&fields=tracks(items(track(id,images,name,artists(name),duration_ms)))", plalistId)
+	req, err := newGetApiCall(url, token)
 	if err != nil {
-		return
+		return nil, &feelbeaterror.FeelBeatError{
+			DebugMessage: err.Error(),
+			UserMessage:  feelbeaterror.LoadingPlaylistFailed,
+		}
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
 
 	res, err := http.DefaultClient.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		return nil, &feelbeaterror.FeelBeatError{
+			DebugMessage: err.Error(),
+			UserMessage:  feelbeaterror.LoadingPlaylistFailed,
+		}
 	}
 
-	defer res.Body.Close()
-	bytes, err := io.ReadAll(res.Body)
+	bytes, err := api.ReadBody(res.Body)
 	if err != nil {
-		log.Fatal(err)
+		return nil, &feelbeaterror.FeelBeatError{
+			DebugMessage: err.Error(),
+			UserMessage:  feelbeaterror.LoadingPlaylistFailed,
+		}
 	}
-
-	title, err := jsonparser.GetString(bytes, "name")
+	var songsResponse playlistSongsResponse
+	err = json.Unmarshal(bytes, &songsResponse)
 	if err != nil {
-		log.Fatal(err)
-
-	}
-	durationInMs, err := jsonparser.GetInt(bytes, "duration_ms")
-	if err != nil {
-		log.Fatal(err)
+		return nil, &feelbeaterror.FeelBeatError{
+			DebugMessage: err.Error(),
+			UserMessage:  feelbeaterror.LoadingPlaylistFailed,
+		}
 	}
 
-	fmt.Println(lib.SongDetails{
-		Title:    title,
-		Duration: time.Duration(durationInMs) * time.Millisecond,
-	})
+	if len(songsResponse.Tracks.Items) == 0 {
+		return nil, &feelbeaterror.FeelBeatError{
+			DebugMessage: "No songs in playlist",
+			UserMessage:  feelbeaterror.LoadingPlaylistFailed,
+		}
+	}
+
+	songs := make([]lib.Song, 0, len(songsResponse.Tracks.Items))
+	for _, item := range songsResponse.Tracks.Items {
+		artistNames := make([]string, 0, len(item.Track.Artists))
+		for _, a := range item.Track.Artists {
+			artistNames = append(artistNames, a.Name)
+		}
+
+		songs = append(songs, lib.Song{
+			Id: item.Track.ID,
+			Details: lib.SongDetails{
+				Title:    item.Track.Name,
+				Artist:   strings.Join(artistNames, " "),
+				Duration: time.Duration(item.Track.DurationMs) * time.Millisecond,
+			},
+		})
+	}
+
+	fmt.Println(songs)
+
+	return songs, nil
 }

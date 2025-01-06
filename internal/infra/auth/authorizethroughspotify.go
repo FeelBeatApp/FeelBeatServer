@@ -6,10 +6,11 @@ import (
 
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/fblog"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/component"
+	"github.com/feelbeatapp/feelbeatserver/internal/lib/feelbeaterror"
 	"github.com/feelbeatapp/feelbeatserver/internal/thirdparty/spotify"
 )
 
-func AuthorizeThroughSpotify(handler func(string, http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
+func AuthorizeThroughSpotify(handler func(string, string, http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		authHeader := req.Header.Get("Authorization")
 
@@ -22,12 +23,13 @@ func AuthorizeThroughSpotify(handler func(string, http.ResponseWriter, *http.Req
 		token := splits[1]
 
 		userId, err := spotify.GetUserId(token)
+
 		if err != nil {
-			http.Error(res, http.StatusText(http.StatusForbidden), http.StatusForbidden)
+			http.Error(res, feelbeaterror.AuthFailed, http.StatusForbidden)
 			fblog.Error(component.Auth, "Access denied", "reason", err)
 			return
 		}
 
-		handler(userId, res, req)
+		handler(userId, token, res, req)
 	}
 }

@@ -18,7 +18,7 @@ type createGameResponse struct {
 	RoomId string `json:"roomId"`
 }
 
-func (r RoomApi) createGameHandler(userId string, res http.ResponseWriter, req *http.Request) {
+func (r RoomApi) createGameHandler(userId string, token string, res http.ResponseWriter, req *http.Request) {
 	var payload room.RoomSettings
 	err := api.ParseBody(req.Body, &payload)
 	if err != nil {
@@ -27,7 +27,7 @@ func (r RoomApi) createGameHandler(userId string, res http.ResponseWriter, req *
 		return
 	}
 
-	roomId, err := r.roomRepo.CreateRoom(userId, payload)
+	roomId, err := r.roomRepo.CreateRoom(userId, payload, token)
 	if err != nil {
 		var fbError *feelbeaterror.FeelBeatError
 		if errors.As(err, &fbError) {

@@ -5,7 +5,9 @@ import "net/http"
 type ErrorCode string
 
 const (
-	Default = "unexpected_error"
+	Default               = "Unexpected error occurred"
+	AuthFailed            = "Authorization failed"
+	LoadingPlaylistFailed = "Playlist loading failed"
 )
 
 func StatusCode(code ErrorCode) int {
