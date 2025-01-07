@@ -1,14 +1,16 @@
 package roomrepository
 
 import (
+	"fmt"
+
+	"github.com/feelbeatapp/feelbeatserver/internal/infra/auth"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/room"
-	"github.com/feelbeatapp/feelbeatserver/internal/lib/validation"
 	"github.com/google/uuid"
 )
 
 type SpotifyApi interface {
-	FetchPlaylistSongs(playlistId string, token string) ([]lib.Song, error)
+	FetchPlaylistData(playlistId string, token string) (lib.PlaylistData, error)
 }
 
 type InMemoryRoomRepository struct {
@@ -23,20 +25,25 @@ func NewInMemoryRoomRepository(spotify SpotifyApi) InMemoryRoomRepository {
 	}
 }
 
-// TODO: Implement fetching playlist details from spotify
-func (r InMemoryRoomRepository) CreateRoom(ownderId string, settings room.RoomSettings, token string) (string, error) {
-	err := validation.ValidateRoomSettings(settings)
+func (r InMemoryRoomRepository) CreateRoom(user auth.User, settings room.RoomSettings) (string, error) {
+	playlistData, err := r.spotify.FetchPlaylistData(settings.PlaylistId, user.Token)
 	if err != nil {
 		return "", err
 	}
 
-	songs, err := r.spotify.FetchPlaylistSongs(settings.PlaylistId, token)
-	if err != nil {
-		return "", err
-	}
-
-	newRoom := room.NewRoom(uuid.NewString(), ownderId, settings, songs)
+	newRoom := room.NewRoom(uuid.NewString(), playlistData, user.Profile, settings)
 	r.rooms[newRoom.Id()] = newRoom
 
+	fmt.Println(newRoom)
+
 	return newRoom.Id(), nil
+}
+
+func (r InMemoryRoomRepository) GetAllRooms() []room.Room {
+	result := make([]room.Room, 0)
+	for _, room := range r.rooms {
+		result = append(result, room)
+	}
+
+	return result
 }

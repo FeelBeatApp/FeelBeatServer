@@ -18,7 +18,7 @@ type createGameResponse struct {
 	RoomId string `json:"roomId"`
 }
 
-func (r RoomApi) createGameHandler(userId string, token string, res http.ResponseWriter, req *http.Request) {
+func (r RoomApi) createGameHandler(user auth.User, res http.ResponseWriter, req *http.Request) {
 	var payload room.RoomSettings
 	err := api.ParseBody(req.Body, &payload)
 	if err != nil {
@@ -27,7 +27,7 @@ func (r RoomApi) createGameHandler(userId string, token string, res http.Respons
 		return
 	}
 
-	roomId, err := r.roomRepo.CreateRoom(userId, payload, token)
+	roomId, err := r.roomRepo.CreateRoom(user, payload)
 	if err != nil {
 		var fbError *feelbeaterror.FeelBeatError
 		if errors.As(err, &fbError) {
@@ -36,7 +36,7 @@ func (r RoomApi) createGameHandler(userId string, token string, res http.Respons
 			http.Error(res, feelbeaterror.Default, feelbeaterror.StatusCode(feelbeaterror.Default))
 		}
 
-		api.LogApiError("Create room failed", err, userId, req)
+		api.LogApiError("Create room failed", err, user.Profile.Id, req)
 		return
 	}
 
@@ -44,18 +44,18 @@ func (r RoomApi) createGameHandler(userId string, token string, res http.Respons
 		RoomId: roomId,
 	})
 	if err != nil {
-		api.LogApiError("Couldn't encode response", err, userId, req)
+		api.LogApiError("Couldn't encode response", err, user.Profile.Id, req)
 		return
 	}
 
 	res.Header().Set("Content-Type", "application/json")
-	_, err = res.Write(resJson)
+	err = api.SendJsonResponse(&res, resJson)
 	if err != nil {
-		api.LogApiError("Couldn't write response", err, userId, req)
+		api.LogApiError("Couldn't write response", err, user.Profile.Id, req)
 		return
 	}
 
-	api.LogApiCall(userId, req)
+	api.LogApiCall(user.Profile.Id, req)
 }
 
 func (r RoomApi) ServeCreateGame(baseUrl string, authWrapper auth.AuthWrapper) {

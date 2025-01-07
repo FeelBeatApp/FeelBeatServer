@@ -10,12 +10,10 @@ import (
 
 const baseUrl = "/api/v1"
 
-// TODO: Add contexts to api handler for graceful shutdown
-
 func setupAPI(authWrapper auth.AuthWrapper, roomRepo roomrepository.RoomRepository) {
 	roomApi := roomapi.NewRoomApi(roomRepo)
 
-	handlers := []func(string, auth.AuthWrapper){roomApi.ServeCreateGame}
+	handlers := []func(string, auth.AuthWrapper){roomApi.ServeCreateGame, roomApi.ServeFetchRooms}
 
 	fblog.Info(component.Api, "Setting up REST API", "handlers count", len(handlers))
 

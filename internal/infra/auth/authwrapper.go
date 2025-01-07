@@ -1,5 +1,14 @@
 package auth
 
-import "net/http"
+import (
+	"net/http"
 
-type AuthWrapper func(func(string, string, http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request)
+	"github.com/feelbeatapp/feelbeatserver/internal/lib"
+)
+
+type User struct {
+	Profile lib.UserProfile
+	Token   string
+}
+
+type AuthWrapper func(func(User, http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request)

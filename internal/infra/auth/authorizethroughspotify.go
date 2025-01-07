@@ -10,7 +10,7 @@ import (
 	"github.com/feelbeatapp/feelbeatserver/internal/thirdparty/spotify"
 )
 
-func AuthorizeThroughSpotify(handler func(string, string, http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
+func AuthorizeThroughSpotify(handler func(User, http.ResponseWriter, *http.Request)) func(http.ResponseWriter, *http.Request) {
 	return func(res http.ResponseWriter, req *http.Request) {
 		authHeader := req.Header.Get("Authorization")
 
@@ -22,7 +22,7 @@ func AuthorizeThroughSpotify(handler func(string, string, http.ResponseWriter, *
 		}
 		token := splits[1]
 
-		userId, err := spotify.GetUserId(token)
+		user, err := spotify.GetUserProfile(token)
 
 		if err != nil {
 			http.Error(res, feelbeaterror.AuthFailed, http.StatusForbidden)
@@ -30,6 +30,6 @@ func AuthorizeThroughSpotify(handler func(string, string, http.ResponseWriter, *
 			return
 		}
 
-		handler(userId, token, res, req)
+		handler(User{Profile: user, Token: token}, res, req)
 	}
 }

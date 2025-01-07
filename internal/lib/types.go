@@ -13,7 +13,14 @@ type Song struct {
 	Details SongDetails
 }
 
-type Playlist struct {
-	Id    string
-	Songs []Song
+type PlaylistData struct {
+	Name     string
+	ImageUrl string
+	Songs    []Song
+}
+
+type UserProfile struct {
+	Id       string
+	Name     string
+	ImageUrl string
 }

@@ -1,6 +1,10 @@
 package spotify
 
-type playlistSongsResponse struct {
+type playlistDataResponse struct {
+	Name   string `json:"name"`
+	Images []struct {
+		Url string `json:"url"`
+	} `json:"images"`
 	Tracks struct {
 		Items []struct {
 			Track struct {

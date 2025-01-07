@@ -1,23 +1,45 @@
 package room
 
-import "github.com/feelbeatapp/feelbeatserver/internal/lib"
+import (
+	"github.com/feelbeatapp/feelbeatserver/internal/lib"
+)
 
 type Room struct {
 	id       string
-	ownerId  string
+	playlist lib.PlaylistData
+	owner    lib.UserProfile
 	settings RoomSettings
-	songs    []lib.Song
+	players  []Player
 }
 
-func NewRoom(id string, ownerId string, settings RoomSettings, songs []lib.Song) Room {
+type Player struct {
+}
+
+func NewRoom(id string, playlist lib.PlaylistData, owner lib.UserProfile, settings RoomSettings) Room {
 	return Room{
 		id:       id,
+		playlist: playlist,
+		owner:    owner,
 		settings: settings,
-		ownerId:  ownerId,
-		songs:    songs,
+		players:  make([]Player, 0),
 	}
 }
 
 func (r Room) Id() string {
 	return r.id
+}
+
+func (r Room) Name() string {
+	return r.playlist.Name
+}
+
+func (r Room) Players() []Player {
+	return r.players
+}
+
+func (r Room) ImageUrl() string {
+	return r.playlist.ImageUrl
+}
+func (r Room) Settings() RoomSettings {
+	return r.settings
 }
