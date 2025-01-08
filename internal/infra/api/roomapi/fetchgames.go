@@ -31,7 +31,7 @@ func (r RoomApi) fetchRoomsHandler(user auth.User, res http.ResponseWriter, req 
 		formatted.Rooms = append(formatted.Rooms, responseRoom{
 			Id:         room.Id(),
 			Name:       room.Name(),
-			Players:    len(room.Players()),
+			Players:    len(room.PlayerProfiles()),
 			MaxPlayers: room.Settings().MaxPlayers,
 			ImageUrl:   room.ImageUrl(),
 		})

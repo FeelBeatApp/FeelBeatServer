@@ -7,5 +7,6 @@ import (
 
 type RoomRepository interface {
 	CreateRoom(user auth.User, settings room.RoomSettings) (string, error)
-	GetAllRooms() []room.Room
+	GetAllRooms() []*room.Room
+	GetRoom(id string) *room.Room
 }

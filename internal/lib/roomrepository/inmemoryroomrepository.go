@@ -5,6 +5,7 @@ import (
 
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/auth"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib"
+	"github.com/feelbeatapp/feelbeatserver/internal/lib/messages"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/room"
 	"github.com/google/uuid"
 )
@@ -14,14 +15,16 @@ type SpotifyApi interface {
 }
 
 type InMemoryRoomRepository struct {
-	spotify SpotifyApi
-	rooms   map[string]room.Room
+	createHub func() messages.Hub
+	spotify   SpotifyApi
+	rooms     map[string]*room.Room
 }
 
-func NewInMemoryRoomRepository(spotify SpotifyApi) InMemoryRoomRepository {
+func NewInMemoryRoomRepository(spotify SpotifyApi, createHub func() messages.Hub) InMemoryRoomRepository {
 	return InMemoryRoomRepository{
-		spotify: spotify,
-		rooms:   make(map[string]room.Room),
+		createHub: createHub,
+		spotify:   spotify,
+		rooms:     make(map[string]*room.Room),
 	}
 }
 
@@ -31,19 +34,24 @@ func (r InMemoryRoomRepository) CreateRoom(user auth.User, settings room.RoomSet
 		return "", err
 	}
 
-	newRoom := room.NewRoom(uuid.NewString(), playlistData, user.Profile, settings)
+	newRoom := room.NewRoom(uuid.NewString(), playlistData, user.Profile, settings, r.createHub())
 	r.rooms[newRoom.Id()] = newRoom
 
-	fmt.Println(newRoom)
+	fmt.Println(r.rooms)
+	newRoom.Start()
 
 	return newRoom.Id(), nil
 }
 
-func (r InMemoryRoomRepository) GetAllRooms() []room.Room {
-	result := make([]room.Room, 0)
+func (r InMemoryRoomRepository) GetAllRooms() []*room.Room {
+	result := make([]*room.Room, 0)
 	for _, room := range r.rooms {
 		result = append(result, room)
 	}
 
 	return result
+}
+
+func (r InMemoryRoomRepository) GetRoom(id string) *room.Room {
+	return r.rooms[id]
 }

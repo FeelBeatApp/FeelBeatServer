@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"net/http"
 	"os"
 
@@ -21,6 +22,7 @@ const (
 )
 
 func main() {
+	slog.SetLogLoggerLevel(slog.LevelDebug)
 	fblog.ColorizeLogger()
 
 	config := koanf.New(".")
@@ -32,17 +34,15 @@ func main() {
 
 	fblog.Info(component.FeelBeatServer, "config loaded", "config", config.All())
 
-	port := config.MustInt("websocket.port")
+	port := config.MustInt("server.port")
 	path := config.MustString("websocket.path")
 
-	hub := ws.NewHub()
-	go hub.Run()
+	roomRepo := roomrepository.NewInMemoryRoomRepository(spotify.SpotifyApi{}, ws.NewWSHub)
 
-	http.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
-		ws.ServeWebsockets(hub, w, r)
-	})
+	ws := ws.NewWSHandler(path, roomRepo)
+	ws.ServeWebsockets(path, auth.AuthorizeThroughSpotify)
 
-	setupAPI(auth.AuthorizeThroughSpotify, roomrepository.NewInMemoryRoomRepository(spotify.SpotifyApi{}))
+	setupAPI(auth.AuthorizeThroughSpotify, roomRepo)
 
 	fblog.Info(component.FeelBeatServer, "Server started", "port", port)
 	log.Fatal(http.ListenAndServe(fmt.Sprintf("localhost:%d", port), nil))

@@ -1,3 +1,5 @@
 [websocket]
-port = 3000
 path = "/ws"
+
+[server]
+port = 3000

@@ -8,10 +8,16 @@ const (
 	Default               = "Unexpected error occurred"
 	AuthFailed            = "Authorization failed"
 	LoadingPlaylistFailed = "Playlist loading failed"
+	RoomNotFound          = "Room not found"
+	EncodingMessageFailed = "Encoding message failed"
 )
 
 func StatusCode(code ErrorCode) int {
 	switch code {
+	case RoomNotFound:
+		return http.StatusNotFound
+	case AuthFailed:
+		return http.StatusForbidden
 	default:
 		return http.StatusInternalServerError
 	}
