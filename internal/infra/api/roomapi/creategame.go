@@ -9,9 +9,9 @@ import (
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/api"
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/auth"
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/fblog"
+	"github.com/feelbeatapp/feelbeatserver/internal/lib"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/component"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/feelbeaterror"
-	"github.com/feelbeatapp/feelbeatserver/internal/lib/room"
 )
 
 type createGameResponse struct {
@@ -19,7 +19,7 @@ type createGameResponse struct {
 }
 
 func (r RoomApi) createGameHandler(user auth.User, res http.ResponseWriter, req *http.Request) {
-	var payload room.RoomSettings
+	var payload lib.RoomSettings
 	err := api.ParseBody(req.Body, &payload)
 	if err != nil {
 		http.Error(res, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)

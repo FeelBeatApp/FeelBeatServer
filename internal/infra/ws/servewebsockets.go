@@ -39,6 +39,8 @@ func (w WSHandler) websocketHandler(user auth.User, res http.ResponseWriter, req
 		api.LogApiError("Registering socket failed, hub is closed", err, user.Profile.Id, req)
 		return
 	}
+
+	api.LogApiCall(user.Profile.Id, req)
 }
 
 func (w WSHandler) ServeWebsockets(basePath string, authWrapper auth.AuthWrapper) {

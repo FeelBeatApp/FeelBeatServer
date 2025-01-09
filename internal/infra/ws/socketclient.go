@@ -2,7 +2,6 @@ package ws
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/fblog"
@@ -11,8 +10,6 @@ import (
 )
 
 const (
-	defaultOutBufferSize = 256
-
 	// Time allowed to read the next pong mesage from the peer
 	pongWait = 60 * time.Second
 
@@ -119,8 +116,6 @@ func (s *SocketClient) sendingLoop() {
 				return
 			}
 
-			fmt.Println("Sending")
-			fmt.Println(string(message))
 			err := s.conn.WriteMessage(websocket.TextMessage, message)
 			if err != nil {
 				fblog.Error(component.Socket, "error when sending message", "msg", message, "err", err)

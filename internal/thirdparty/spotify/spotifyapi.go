@@ -16,7 +16,7 @@ type SpotifyApi struct {
 }
 
 func (s SpotifyApi) FetchPlaylistData(plalistId string, token string) (lib.PlaylistData, error) {
-	url := fmt.Sprintf("/playlists/%s?additional_types=track&fields=name,images(url),tracks(items(track(id,images,name,artists(name),duration_ms)))", plalistId)
+	url := fmt.Sprintf("/playlists/%s?additional_types=track&fields=name,images(url),tracks(items(track(id,name,artists(name),duration_ms,album(images(url)))))", plalistId)
 	req, err := newGetApiCall(url, token)
 	if err != nil {
 		return lib.PlaylistData{}, &feelbeaterror.FeelBeatError{
@@ -63,12 +63,18 @@ func (s SpotifyApi) FetchPlaylistData(plalistId string, token string) (lib.Playl
 			artistNames = append(artistNames, a.Name)
 		}
 
+		var imageUrl string
+		if imageUrl = ""; len(item.Track.Album.Images) > 0 {
+			imageUrl = item.Track.Album.Images[0].Url
+		}
+
 		songs = append(songs, lib.Song{
 			Id: item.Track.ID,
 			Details: lib.SongDetails{
 				Title:    item.Track.Name,
-				Artist:   strings.Join(artistNames, " "),
+				Artist:   strings.Join(artistNames, ", "),
 				Duration: time.Duration(item.Track.DurationMs) * time.Millisecond,
+				ImageUrl: imageUrl,
 			},
 		})
 	}

@@ -11,7 +11,7 @@ type Room struct {
 	id       string
 	playlist lib.PlaylistData
 	owner    lib.UserProfile
-	settings RoomSettings
+	settings lib.RoomSettings
 	players  map[string]Player
 	hub      messages.Hub
 	snd      chan messages.ServerMessage
@@ -22,7 +22,7 @@ type Player struct {
 	profile lib.UserProfile
 }
 
-func NewRoom(id string, playlist lib.PlaylistData, owner lib.UserProfile, settings RoomSettings, hub messages.Hub) *Room {
+func NewRoom(id string, playlist lib.PlaylistData, owner lib.UserProfile, settings lib.RoomSettings, hub messages.Hub) *Room {
 	return &Room{
 		id:       id,
 		playlist: playlist,
@@ -55,7 +55,7 @@ func (r *Room) ImageUrl() string {
 	return r.playlist.ImageUrl
 }
 
-func (r *Room) Settings() RoomSettings {
+func (r *Room) Settings() lib.RoomSettings {
 	return r.settings
 }
 
@@ -72,8 +72,79 @@ func (r *Room) Hub() messages.Hub {
 	return r.hub
 }
 
-func (r *Room) processMessages() {
-	for message := range r.rcv {
-		fblog.Info(component.Room, "Received message", "room", r.id, "from", message.From, "type", message.Type, "payload", message.Payload)
+func (r *Room) addPlayer(profile lib.UserProfile) {
+	r.players[profile.Id] = Player{
+		profile: profile,
+	}
+
+	fblog.Info(component.Room, "new player", "roomId", r.id, "userId", profile.Id)
+
+	playerProfiles := make([]lib.UserProfile, 0)
+	for _, p := range r.players {
+		playerProfiles = append(playerProfiles, p.profile)
+	}
+
+	packedSongs := make([]messages.SongState, 0)
+	for _, s := range r.playlist.Songs {
+		packedSongs = append(packedSongs, messages.SongState{
+			Id:          s.Id,
+			Title:       s.Details.Title,
+			Artist:      s.Details.Artist,
+			ImageUrl:    s.Details.ImageUrl,
+			DurationSec: int(s.Details.Duration.Seconds()),
+		})
+	}
+
+	r.snd <- messages.ServerMessage{
+		To:   []string{profile.Id},
+		Type: messages.InitialMessage,
+		Payload: messages.InitialGameState{
+			Id:    r.id,
+			Me:    profile.Id,
+			Admin: r.owner.Id,
+			Playlist: messages.PlaylistState{
+				Name:     r.Name(),
+				ImageUrl: r.ImageUrl(),
+				Songs:    packedSongs,
+			},
+			Players:  playerProfiles,
+			Settings: r.settings,
+		},
+	}
+	r.sendToAllExcept(profile.Id, messages.NewPlayer, profile)
+}
+
+func (r *Room) removePlayer(id string) {
+	if _, ok := r.players[id]; !ok {
+		return
+	}
+
+	delete(r.players, id)
+	recipents := make([]string, 0)
+	for _, p := range r.players {
+		recipents = append(recipents, p.profile.Id)
+	}
+
+	fblog.Info(component.Room, "player leaves", "roomId", r.id, "playerId", id)
+
+	r.snd <- messages.ServerMessage{
+		To:      recipents,
+		Type:    messages.PlayerLeft,
+		Payload: id,
+	}
+}
+
+func (r *Room) sendToAllExcept(id string, messageType messages.ServerMessageType, payload interface{}) {
+	recipents := make([]string, 0)
+	for _, p := range r.players {
+		if p.profile.Id != id {
+			recipents = append(recipents, p.profile.Id)
+		}
+	}
+
+	r.snd <- messages.ServerMessage{
+		To:      recipents,
+		Type:    messageType,
+		Payload: payload,
 	}
 }

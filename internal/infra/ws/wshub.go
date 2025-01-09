@@ -1,8 +1,10 @@
 package ws
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"sync"
 
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/fblog"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/component"
@@ -16,7 +18,7 @@ type WSHub struct {
 	rcv        chan messages.ClientMessage
 	register   chan messages.UserClient
 	unregister chan string
-	closed     chan bool
+	isOpen     bool
 }
 
 type WSHubUser struct {
@@ -30,7 +32,7 @@ func NewWSHub() messages.Hub {
 		rcv:        make(chan messages.ClientMessage),
 		register:   make(chan messages.UserClient),
 		unregister: make(chan string),
-		closed:     make(chan bool),
+		isOpen:     true,
 	}
 }
 
@@ -41,29 +43,30 @@ func (h *WSHub) Run(snd <-chan messages.ServerMessage) <-chan messages.ClientMes
 }
 
 func (h *WSHub) Register(user messages.UserClient) error {
-	select {
-	case h.register <- user:
-		return nil
-	case <-h.closed:
-		return fmt.Errorf("Hub is already closed")
+	if !h.isOpen {
+		return fmt.Errorf("Hub is not open")
 	}
+
+	h.register <- user
+	return nil
 }
 
 func (h *WSHub) run() {
+	ctx, cancel := context.WithCancel(context.Background())
+	var wg sync.WaitGroup
+
 	defer func() {
+		h.isOpen = false
+		cancel()
+		wg.Wait()
+
+		for _, c := range h.clients {
+			close(c.snd)
+		}
+
 		close(h.register)
 		close(h.unregister)
-
-		for msg := range h.snd {
-			h.sendMessage(msg)
-		}
-
 		close(h.rcv)
-
-		for _, client := range h.clients {
-			close(client.snd)
-			delete(h.clients, client.userClient.User.Profile.Id)
-		}
 	}()
 
 	for {
@@ -74,8 +77,9 @@ func (h *WSHub) run() {
 				snd:        make(chan []byte),
 			}
 			h.clients[usersocket.User.Profile.Id] = hubUser
+			wg.Add(1)
 			go usersocket.Client.Run(hubUser.snd)
-			go h.passMessages(hubUser.userClient.User.Profile.Id, hubUser.userClient.Client.ReceiveChannel())
+			go h.passMessages(ctx, &wg, hubUser.userClient.User.Profile.Id, hubUser.userClient.Client.ReceiveChannel())
 
 			h.rcv <- messages.ClientMessage{
 				Type: messages.JoiningPlayer,
@@ -89,12 +93,14 @@ func (h *WSHub) run() {
 				Type: messages.LeavingPlayer,
 				From: userId,
 			}
-			close(h.clients[userId].snd)
+
+			if c, ok := h.clients[userId]; ok {
+				close(c.snd)
+			}
 			delete(h.clients, userId)
 
 		case message, ok := <-h.snd:
 			if !ok {
-				close(h.closed)
 				return
 			}
 			h.sendMessage(message)
@@ -102,38 +108,39 @@ func (h *WSHub) run() {
 	}
 }
 
-func (h *WSHub) passMessages(from string, rcv <-chan []byte) {
-	for bytes := range rcv {
-		var message messages.ClientMessage
-		err := json.Unmarshal(bytes, &message)
-		if err != nil {
-			fblog.Error(component.Hub, "Failed to parse client message", "err", err)
-		}
-		message.From = from
-		fmt.Println("Check")
-		fmt.Println(message)
-		fmt.Println(from)
+func (h *WSHub) passMessages(ctx context.Context, wg *sync.WaitGroup, from string, rcv <-chan []byte) {
+	defer func() {
+		wg.Done()
+	}()
 
-		h.rcv <- message
-	}
-
-	h.unregister <- from
-}
-
-func (h *WSHub) sendMessage(message messages.ServerMessage) {
-	if msg, ok := message.Payload.(string); ok {
-		if msg == messages.KickUser {
-			for _, id := range message.To {
-				close(h.clients[id].snd)
+	for {
+		select {
+		case bytes, ok := <-rcv:
+			if !ok {
+				h.unregister <- from
+				return
 			}
+			var message messages.ClientMessage
+			err := json.Unmarshal(bytes, &message)
+			if err != nil {
+				fblog.Error(component.Hub, "Failed to parse client message", "err", err)
+			}
+			message.From = from
+
+			h.rcv <- message
+		case <-ctx.Done():
 			return
 		}
 	}
+}
 
-	bytes, err := json.Marshal(message.Payload)
+func (h *WSHub) sendMessage(message messages.ServerMessage) {
+	bytes, err := json.Marshal(message.ToUnit())
 	if err != nil {
 		bytes = []byte(feelbeaterror.EncodingMessageFailed)
 	}
+
+	fblog.Info(component.Hub, "sending message", "type", message.Type, "to", message.To)
 
 	for _, id := range message.To {
 		h.clients[id].snd <- bytes

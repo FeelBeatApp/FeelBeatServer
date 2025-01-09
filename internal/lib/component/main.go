@@ -9,6 +9,7 @@ const (
 	Api            = "api"
 	Auth           = "auth"
 	Room           = "room"
+	RoomRepository = "room repository"
 
 	AudioDownloadTask = "audiodownloadtask"
 )

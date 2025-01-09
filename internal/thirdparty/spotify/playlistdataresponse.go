@@ -14,6 +14,11 @@ type playlistDataResponse struct {
 				Name       string `json:"name"`
 				ID         string `json:"id"`
 				DurationMs int    `json:"duration_ms"`
+				Album      struct {
+					Images []struct {
+						Url string `json:"url"`
+					} `json:"images"`
+				} `json:"album"`
 			} `json:"track"`
 		} `json:"items"`
 	} `json:"tracks"`

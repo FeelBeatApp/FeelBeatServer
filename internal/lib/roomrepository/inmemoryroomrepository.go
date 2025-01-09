@@ -1,10 +1,10 @@
 package roomrepository
 
 import (
-	"fmt"
-
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/auth"
+	"github.com/feelbeatapp/feelbeatserver/internal/infra/fblog"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib"
+	"github.com/feelbeatapp/feelbeatserver/internal/lib/component"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/messages"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/room"
 	"github.com/google/uuid"
@@ -28,7 +28,7 @@ func NewInMemoryRoomRepository(spotify SpotifyApi, createHub func() messages.Hub
 	}
 }
 
-func (r InMemoryRoomRepository) CreateRoom(user auth.User, settings room.RoomSettings) (string, error) {
+func (r InMemoryRoomRepository) CreateRoom(user auth.User, settings lib.RoomSettings) (string, error) {
 	playlistData, err := r.spotify.FetchPlaylistData(settings.PlaylistId, user.Token)
 	if err != nil {
 		return "", err
@@ -37,8 +37,9 @@ func (r InMemoryRoomRepository) CreateRoom(user auth.User, settings room.RoomSet
 	newRoom := room.NewRoom(uuid.NewString(), playlistData, user.Profile, settings, r.createHub())
 	r.rooms[newRoom.Id()] = newRoom
 
-	fmt.Println(r.rooms)
 	newRoom.Start()
+
+	fblog.Info(component.RoomRepository, "room created and started", "id", newRoom.Id(), "room count", len(r.rooms))
 
 	return newRoom.Id(), nil
 }
