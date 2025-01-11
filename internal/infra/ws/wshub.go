@@ -67,6 +67,8 @@ func (h *WSHub) run() {
 		close(h.register)
 		close(h.unregister)
 		close(h.rcv)
+
+		fblog.Info(component.Hub, "hub closed")
 	}()
 
 	for {

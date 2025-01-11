@@ -8,29 +8,31 @@ import (
 )
 
 type Room struct {
-	id       string
-	playlist lib.PlaylistData
-	owner    lib.UserProfile
-	settings lib.RoomSettings
-	players  map[string]Player
-	hub      messages.Hub
-	snd      chan messages.ServerMessage
-	rcv      <-chan messages.ClientMessage
+	id        string
+	playlist  lib.PlaylistData
+	owner     lib.UserProfile
+	settings  lib.RoomSettings
+	players   map[string]Player
+	hub       messages.Hub
+	snd       chan messages.ServerMessage
+	rcv       <-chan messages.ClientMessage
+	onCleanup func(*Room)
 }
 
 type Player struct {
 	profile lib.UserProfile
 }
 
-func NewRoom(id string, playlist lib.PlaylistData, owner lib.UserProfile, settings lib.RoomSettings, hub messages.Hub) *Room {
+func NewRoom(id string, playlist lib.PlaylistData, owner lib.UserProfile, settings lib.RoomSettings, hub messages.Hub, onCleanup func(*Room)) *Room {
 	return &Room{
-		id:       id,
-		playlist: playlist,
-		owner:    owner,
-		settings: settings,
-		players:  make(map[string]Player),
-		hub:      hub,
-		snd:      make(chan messages.ServerMessage),
+		id:        id,
+		playlist:  playlist,
+		owner:     owner,
+		settings:  settings,
+		players:   make(map[string]Player),
+		hub:       hub,
+		snd:       make(chan messages.ServerMessage),
+		onCleanup: onCleanup,
 	}
 }
 
@@ -62,10 +64,6 @@ func (r *Room) Settings() lib.RoomSettings {
 func (r *Room) Start() {
 	r.rcv = r.hub.Run(r.snd)
 	go r.processMessages()
-}
-
-func (r *Room) Stop() {
-	close(r.snd)
 }
 
 func (r *Room) Hub() messages.Hub {
@@ -124,13 +122,26 @@ func (r *Room) removePlayer(id string) {
 	for _, p := range r.players {
 		recipents = append(recipents, p.profile.Id)
 	}
+	if len(r.players) == 0 {
+		r.onCleanup(r)
+		r.cleanup()
+		return
+	}
+
+	if id == r.owner.Id {
+		r.owner = r.players[recipents[0]].profile
+		fblog.Info(component.Room, "admin transfered", "roomId", r.id, "from", id, "to", r.owner.Id)
+	}
 
 	fblog.Info(component.Room, "player leaves", "roomId", r.id, "playerId", id)
 
 	r.snd <- messages.ServerMessage{
-		To:      recipents,
-		Type:    messages.PlayerLeft,
-		Payload: id,
+		To:   recipents,
+		Type: messages.PlayerLeft,
+		Payload: messages.PlayerLeftPayload{
+			Left:  id,
+			Admin: r.owner.Id,
+		},
 	}
 }
 
@@ -147,4 +158,9 @@ func (r *Room) sendToAllExcept(id string, messageType messages.ServerMessageType
 		Type:    messageType,
 		Payload: payload,
 	}
+}
+
+func (r *Room) cleanup() {
+	close(r.snd)
+	fblog.Info(component.Room, "room stopping", "id", r.id)
 }

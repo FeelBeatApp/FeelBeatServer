@@ -52,3 +52,8 @@ type SongState struct {
 	ImageUrl    string `json:"imageUrl"`
 	DurationSec int    `json:"durationSec"`
 }
+
+type PlayerLeftPayload struct {
+	Left  string `json:"left"`
+	Admin string `json:"admin"`
+}
