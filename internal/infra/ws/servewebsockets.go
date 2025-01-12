@@ -25,6 +25,13 @@ func (w WSHandler) websocketHandler(user auth.User, res http.ResponseWriter, req
 		api.LogApiError("User tried to connect to non existing room", nil, user.Profile.Id, req)
 		return
 	}
+
+	if len(room.PlayerProfiles()) >= room.Settings().MaxPlayers {
+		http.Error(res, feelbeaterror.RoomFull, feelbeaterror.StatusCode(feelbeaterror.RoomFull))
+		api.LogApiError("user rejected, room full", nil, user.Profile.Id, req)
+		return
+	}
+
 	conn, err := upgrader.Upgrade(res, req, nil)
 	if err != nil {
 		http.Error(res, feelbeaterror.Default, feelbeaterror.StatusCode(feelbeaterror.Default))
