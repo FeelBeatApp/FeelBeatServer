@@ -151,6 +151,8 @@ func decodeMessage(from string, msgType string, payload []byte) messages.ClientM
 	case messages.SettingsUpdate:
 		err = json.Unmarshal(payload, &settingsUpdate)
 		result = settingsUpdate
+	case messages.ReadyStatus:
+		result, err = jsonparser.GetBoolean(payload)
 	}
 
 	if err != nil {

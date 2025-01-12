@@ -8,6 +8,7 @@ import (
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/auth"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/feelbeaterror"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/messages"
+	roomLib "github.com/feelbeatapp/feelbeatserver/internal/lib/room"
 	"github.com/gorilla/websocket"
 )
 
@@ -29,6 +30,12 @@ func (w WSHandler) websocketHandler(user auth.User, res http.ResponseWriter, req
 	if len(room.PlayerProfiles()) >= room.Settings().MaxPlayers {
 		http.Error(res, feelbeaterror.RoomFull, feelbeaterror.StatusCode(feelbeaterror.RoomFull))
 		api.LogApiError("user rejected, room full", nil, user.Profile.Id, req)
+		return
+	}
+
+	if room.Stage() != roomLib.LobbyStage {
+		http.Error(res, feelbeaterror.RoomGameStage, feelbeaterror.StatusCode(feelbeaterror.RoomGameStage))
+		api.LogApiError("user rejected, room in game stage", nil, user.Profile.Id, req)
 		return
 	}
 

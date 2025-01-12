@@ -11,6 +11,7 @@ const (
 	RoomNotFound          = "Room not found"
 	RoomFull              = "Room is full"
 	EncodingMessageFailed = "Encoding message failed"
+	RoomGameStage         = "Room is already in game mode"
 )
 
 func StatusCode(code ErrorCode) int {
@@ -21,6 +22,8 @@ func StatusCode(code ErrorCode) int {
 		return http.StatusForbidden
 	case AuthFailed:
 		return http.StatusForbidden
+	case RoomGameStage:
+		return http.StatusBadRequest
 	default:
 		return http.StatusInternalServerError
 	}

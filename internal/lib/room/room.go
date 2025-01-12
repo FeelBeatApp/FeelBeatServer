@@ -16,6 +16,8 @@ type Room struct {
 	owner      lib.UserProfile
 	settings   lib.RoomSettings
 	players    map[string]Player
+	readyMap   map[string]bool
+	stage      RoomStage
 	hub        messages.Hub
 	snd        chan messages.ServerMessage
 	rcv        <-chan messages.ClientMessage
@@ -41,6 +43,8 @@ func NewRoom(id string,
 		owner:      owner,
 		settings:   settings,
 		players:    make(map[string]Player),
+		readyMap:   make(map[string]bool),
+		stage:      LobbyStage,
 		hub:        hub,
 		snd:        make(chan messages.ServerMessage),
 		onCleanup:  onCleanup,
@@ -73,6 +77,10 @@ func (r *Room) Settings() lib.RoomSettings {
 	return r.settings
 }
 
+func (r *Room) Stage() RoomStage {
+	return r.stage
+}
+
 func (r *Room) Start() {
 	r.rcv = r.hub.Run(r.snd)
 	go r.processMessages()
@@ -83,6 +91,10 @@ func (r *Room) Hub() messages.Hub {
 }
 
 func (r *Room) addPlayer(profile lib.UserProfile) {
+	if r.stage != LobbyStage {
+		return
+	}
+
 	r.players[profile.Id] = Player{
 		profile: profile,
 	}
@@ -123,6 +135,7 @@ func (r *Room) packIntialState(me string) messages.ServerMessage {
 				Songs:    packedSongs,
 			},
 			Players:  playerProfiles,
+			ReadyMap: r.readyMap,
 			Settings: r.settings,
 		},
 	}
@@ -159,6 +172,10 @@ func (r *Room) removePlayer(id string) {
 			Left:  id,
 			Admin: r.owner.Id,
 		},
+	}
+
+	if r.allReady() {
+		r.broadcastRoomStage(GameStage)
 	}
 }
 
@@ -199,6 +216,40 @@ func (r *Room) updateSettings(from string, settingsPayload messages.SettingsUpda
 		r.snd <- r.packIntialState(from)
 	}
 
+}
+
+func (r *Room) updateReady(from string, ready bool) {
+	r.readyMap[from] = ready
+
+	if r.allReady() {
+		r.broadcastRoomStage(GameStage)
+	} else {
+		r.sendToAllExcept(from, messages.PlayerReady, messages.PlayerReadyPayload{
+			Player: from,
+			Ready:  ready,
+		})
+	}
+}
+
+func (r *Room) allReady() bool {
+	allReady := true
+	for _, p := range r.players {
+		allReady = allReady && r.readyMap[p.profile.Id]
+	}
+	return allReady
+}
+
+func (r *Room) broadcastRoomStage(stage RoomStage) {
+	recipents := make([]string, 0)
+	for _, p := range r.players {
+		recipents = append(recipents, p.profile.Id)
+	}
+
+	r.snd <- messages.ServerMessage{
+		To:      recipents,
+		Type:    messages.RoomStage,
+		Payload: stage,
+	}
 }
 
 func (r *Room) sendToAllExcept(id string, messageType messages.ServerMessageType, payload interface{}) {

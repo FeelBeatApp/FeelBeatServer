@@ -29,6 +29,8 @@ const (
 	NewPlayer      = "NEW_PLAYER"
 	PlayerLeft     = "PLAYER_LEFT"
 	ServerError    = "SERVER_ERROR"
+	RoomStage      = "ROOM_STAGE"
+	PlayerReady    = "PLAYER_READY"
 )
 
 type InitialGameState struct {
@@ -38,6 +40,7 @@ type InitialGameState struct {
 	Playlist PlaylistState     `json:"playlist"`
 	Players  []lib.UserProfile `json:"players"`
 	Settings lib.RoomSettings  `json:"settings"`
+	ReadyMap map[string]bool   `json:"readyMap"`
 }
 
 type PlaylistState struct {
@@ -57,4 +60,9 @@ type SongState struct {
 type PlayerLeftPayload struct {
 	Left  string `json:"left"`
 	Admin string `json:"admin"`
+}
+
+type PlayerReadyPayload struct {
+	Player string `json:"player"`
+	Ready  bool   `json:"ready"`
 }

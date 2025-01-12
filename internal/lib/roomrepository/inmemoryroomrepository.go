@@ -53,8 +53,10 @@ func (r *InMemoryRoomRepository) CreateRoom(user auth.User, settings lib.RoomSet
 func (r *InMemoryRoomRepository) GetAllRooms() []*room.Room {
 	result := make([]*room.Room, 0)
 	r.m.RLock()
-	for _, room := range r.rooms {
-		result = append(result, room)
+	for _, r := range r.rooms {
+		if r.Stage() == room.LobbyStage {
+			result = append(result, r)
+		}
 	}
 	r.m.RUnlock()
 

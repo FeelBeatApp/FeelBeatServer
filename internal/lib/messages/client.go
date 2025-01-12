@@ -8,6 +8,7 @@ const (
 	JoiningPlayer  = "JOIN"
 	LeavingPlayer  = "LEAVE"
 	SettingsUpdate = "SETTINGS_UPDATE"
+	ReadyStatus    = "READY_STATUS"
 )
 
 type ClientMessage struct {
