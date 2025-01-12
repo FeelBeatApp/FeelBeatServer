@@ -11,7 +11,7 @@ const (
 	Room           = "room"
 	RoomRepository = "room repository"
 
-	AudioDownloadTask = "audiodownloadtask"
+	AudioProvider = "audioprovider"
 )
 
 type FeelBeatComponent = string

@@ -31,6 +31,7 @@ const (
 	ServerError    = "SERVER_ERROR"
 	RoomStage      = "ROOM_STAGE"
 	PlayerReady    = "PLAYER_READY"
+	PlaySong       = "PLAY_SONG"
 )
 
 type InitialGameState struct {
@@ -65,4 +66,9 @@ type PlayerLeftPayload struct {
 type PlayerReadyPayload struct {
 	Player string `json:"player"`
 	Ready  bool   `json:"ready"`
+}
+
+type PlaySongPayload struct {
+	Url       string `json:"url"`
+	Timestamp int64  `json:"timestamp"`
 }

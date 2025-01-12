@@ -2,13 +2,18 @@ package room
 
 import (
 	"errors"
+	"math/rand/v2"
+	"time"
 
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/fblog"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib"
+	"github.com/feelbeatapp/feelbeatserver/internal/lib/audioprovider"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/component"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/feelbeaterror"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/messages"
 )
+
+const songPlayDelay = time.Second * 5
 
 type Room struct {
 	id         string
@@ -23,6 +28,7 @@ type Room struct {
 	rcv        <-chan messages.ClientMessage
 	onCleanup  func(*Room)
 	spotifyApi lib.SpotifyApi
+	audio      audioprovider.AudioProvider
 }
 
 type Player struct {
@@ -35,6 +41,7 @@ func NewRoom(id string,
 	settings lib.RoomSettings,
 	hub messages.Hub,
 	spotifyApi lib.SpotifyApi,
+	audio audioprovider.AudioProvider,
 	onCleanup func(*Room),
 ) *Room {
 	return &Room{
@@ -47,8 +54,9 @@ func NewRoom(id string,
 		stage:      LobbyStage,
 		hub:        hub,
 		snd:        make(chan messages.ServerMessage),
-		onCleanup:  onCleanup,
 		spotifyApi: spotifyApi,
+		audio:      audio,
+		onCleanup:  onCleanup,
 	}
 }
 
@@ -176,6 +184,7 @@ func (r *Room) removePlayer(id string) {
 
 	if r.allReady() {
 		r.broadcastRoomStage(GameStage)
+		r.provideSong()
 	}
 }
 
@@ -223,6 +232,7 @@ func (r *Room) updateReady(from string, ready bool) {
 
 	if r.allReady() {
 		r.broadcastRoomStage(GameStage)
+		r.provideSong()
 	} else {
 		r.sendToAllExcept(from, messages.PlayerReady, messages.PlayerReadyPayload{
 			Player: from,
@@ -240,6 +250,7 @@ func (r *Room) allReady() bool {
 }
 
 func (r *Room) broadcastRoomStage(stage RoomStage) {
+	r.stage = stage
 	recipents := make([]string, 0)
 	for _, p := range r.players {
 		recipents = append(recipents, p.profile.Id)
@@ -249,6 +260,35 @@ func (r *Room) broadcastRoomStage(stage RoomStage) {
 		To:      recipents,
 		Type:    messages.RoomStage,
 		Payload: stage,
+	}
+}
+
+func (r *Room) provideSong() {
+	var pickedSong lib.Song
+	var url string
+	for {
+		pickedSong = r.playlist.Songs[rand.IntN(len(r.playlist.Songs))]
+		u, err := r.audio.GetUrl(pickedSong.Details)
+		url = u
+		if err == nil {
+			break
+		}
+	}
+
+	start := time.Now().Add(songPlayDelay)
+
+	recipents := make([]string, 0)
+	for _, p := range r.players {
+		recipents = append(recipents, p.profile.Id)
+	}
+
+	r.snd <- messages.ServerMessage{
+		To:   recipents,
+		Type: messages.PlaySong,
+		Payload: messages.PlaySongPayload{
+			Url:       url,
+			Timestamp: start.Unix(),
+		},
 	}
 }
 

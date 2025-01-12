@@ -6,6 +6,7 @@ import (
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/auth"
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/fblog"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib"
+	"github.com/feelbeatapp/feelbeatserver/internal/lib/audioprovider"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/component"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/messages"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/room"
@@ -15,13 +16,15 @@ import (
 type InMemoryRoomRepository struct {
 	createHub func() messages.Hub
 	spotify   lib.SpotifyApi
+	audio     audioprovider.AudioProvider
 	rooms     map[string]*room.Room
 	m         sync.RWMutex
 }
 
-func NewInMemoryRoomRepository(spotify lib.SpotifyApi, createHub func() messages.Hub) *InMemoryRoomRepository {
+func NewInMemoryRoomRepository(spotify lib.SpotifyApi, audio audioprovider.AudioProvider, createHub func() messages.Hub) *InMemoryRoomRepository {
 	return &InMemoryRoomRepository{
 		createHub: createHub,
+		audio:     audio,
 		spotify:   spotify,
 		rooms:     make(map[string]*room.Room),
 	}
@@ -33,7 +36,7 @@ func (r *InMemoryRoomRepository) CreateRoom(user auth.User, settings lib.RoomSet
 		return "", err
 	}
 
-	newRoom := room.NewRoom(uuid.NewString(), playlistData, user.Profile, settings, r.createHub(), r.spotify, func(room *room.Room) {
+	newRoom := room.NewRoom(uuid.NewString(), playlistData, user.Profile, settings, r.createHub(), r.spotify, r.audio, func(room *room.Room) {
 		r.m.Lock()
 		delete(r.rooms, room.Id())
 		r.m.Unlock()

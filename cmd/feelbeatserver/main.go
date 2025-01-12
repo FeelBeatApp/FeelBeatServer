@@ -10,6 +10,7 @@ import (
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/auth"
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/fblog"
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/ws"
+	"github.com/feelbeatapp/feelbeatserver/internal/lib/audioprovider"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/component"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/roomrepository"
 	"github.com/feelbeatapp/feelbeatserver/internal/thirdparty/spotify"
@@ -37,7 +38,8 @@ func main() {
 	port := config.MustInt("server.port")
 	path := config.MustString("websocket.path")
 
-	roomRepo := roomrepository.NewInMemoryRoomRepository(spotify.SpotifyApi{}, ws.NewWSHub)
+	ytaudio := audioprovider.NewYTAudioPRovider()
+	roomRepo := roomrepository.NewInMemoryRoomRepository(spotify.SpotifyApi{}, ytaudio, ws.NewWSHub)
 
 	ws := ws.NewWSHandler(path, roomRepo)
 	ws.ServeWebsockets(path, auth.AuthorizeThroughSpotify)
