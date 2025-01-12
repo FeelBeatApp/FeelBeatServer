@@ -28,6 +28,7 @@ const (
 	InitialMessage = "INITIAL"
 	NewPlayer      = "NEW_PLAYER"
 	PlayerLeft     = "PLAYER_LEFT"
+	ServerError    = "SERVER_ERROR"
 )
 
 type InitialGameState struct {

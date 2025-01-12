@@ -12,18 +12,14 @@ import (
 	"github.com/google/uuid"
 )
 
-type SpotifyApi interface {
-	FetchPlaylistData(playlistId string, token string) (lib.PlaylistData, error)
-}
-
 type InMemoryRoomRepository struct {
 	createHub func() messages.Hub
-	spotify   SpotifyApi
+	spotify   lib.SpotifyApi
 	rooms     map[string]*room.Room
 	m         sync.RWMutex
 }
 
-func NewInMemoryRoomRepository(spotify SpotifyApi, createHub func() messages.Hub) *InMemoryRoomRepository {
+func NewInMemoryRoomRepository(spotify lib.SpotifyApi, createHub func() messages.Hub) *InMemoryRoomRepository {
 	return &InMemoryRoomRepository{
 		createHub: createHub,
 		spotify:   spotify,
@@ -37,7 +33,7 @@ func (r *InMemoryRoomRepository) CreateRoom(user auth.User, settings lib.RoomSet
 		return "", err
 	}
 
-	newRoom := room.NewRoom(uuid.NewString(), playlistData, user.Profile, settings, r.createHub(), func(room *room.Room) {
+	newRoom := room.NewRoom(uuid.NewString(), playlistData, user.Profile, settings, r.createHub(), r.spotify, func(room *room.Room) {
 		r.m.Lock()
 		delete(r.rooms, room.Id())
 		r.m.Unlock()

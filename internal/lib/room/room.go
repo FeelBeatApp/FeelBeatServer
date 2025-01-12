@@ -1,38 +1,50 @@
 package room
 
 import (
+	"errors"
+
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/fblog"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/component"
+	"github.com/feelbeatapp/feelbeatserver/internal/lib/feelbeaterror"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/messages"
 )
 
 type Room struct {
-	id        string
-	playlist  lib.PlaylistData
-	owner     lib.UserProfile
-	settings  lib.RoomSettings
-	players   map[string]Player
-	hub       messages.Hub
-	snd       chan messages.ServerMessage
-	rcv       <-chan messages.ClientMessage
-	onCleanup func(*Room)
+	id         string
+	playlist   lib.PlaylistData
+	owner      lib.UserProfile
+	settings   lib.RoomSettings
+	players    map[string]Player
+	hub        messages.Hub
+	snd        chan messages.ServerMessage
+	rcv        <-chan messages.ClientMessage
+	onCleanup  func(*Room)
+	spotifyApi lib.SpotifyApi
 }
 
 type Player struct {
 	profile lib.UserProfile
 }
 
-func NewRoom(id string, playlist lib.PlaylistData, owner lib.UserProfile, settings lib.RoomSettings, hub messages.Hub, onCleanup func(*Room)) *Room {
+func NewRoom(id string,
+	playlist lib.PlaylistData,
+	owner lib.UserProfile,
+	settings lib.RoomSettings,
+	hub messages.Hub,
+	spotifyApi lib.SpotifyApi,
+	onCleanup func(*Room),
+) *Room {
 	return &Room{
-		id:        id,
-		playlist:  playlist,
-		owner:     owner,
-		settings:  settings,
-		players:   make(map[string]Player),
-		hub:       hub,
-		snd:       make(chan messages.ServerMessage),
-		onCleanup: onCleanup,
+		id:         id,
+		playlist:   playlist,
+		owner:      owner,
+		settings:   settings,
+		players:    make(map[string]Player),
+		hub:        hub,
+		snd:        make(chan messages.ServerMessage),
+		onCleanup:  onCleanup,
+		spotifyApi: spotifyApi,
 	}
 }
 
@@ -77,6 +89,11 @@ func (r *Room) addPlayer(profile lib.UserProfile) {
 
 	fblog.Info(component.Room, "new player", "roomId", r.id, "userId", profile.Id)
 
+	r.snd <- r.packIntialState(profile.Id)
+	r.sendToAllExcept(profile.Id, messages.NewPlayer, profile)
+}
+
+func (r *Room) packIntialState(me string) messages.ServerMessage {
 	playerProfiles := make([]lib.UserProfile, 0)
 	for _, p := range r.players {
 		playerProfiles = append(playerProfiles, p.profile)
@@ -93,12 +110,12 @@ func (r *Room) addPlayer(profile lib.UserProfile) {
 		})
 	}
 
-	r.snd <- messages.ServerMessage{
-		To:   []string{profile.Id},
+	return messages.ServerMessage{
+		To:   []string{me},
 		Type: messages.InitialMessage,
 		Payload: messages.InitialGameState{
 			Id:    r.id,
-			Me:    profile.Id,
+			Me:    me,
 			Admin: r.owner.Id,
 			Playlist: messages.PlaylistState{
 				Name:     r.Name(),
@@ -109,7 +126,7 @@ func (r *Room) addPlayer(profile lib.UserProfile) {
 			Settings: r.settings,
 		},
 	}
-	r.sendToAllExcept(profile.Id, messages.NewPlayer, profile)
+
 }
 
 func (r *Room) removePlayer(id string) {
@@ -143,6 +160,45 @@ func (r *Room) removePlayer(id string) {
 			Admin: r.owner.Id,
 		},
 	}
+}
+
+func (r *Room) updateSettings(from string, settingsPayload messages.SettingsUpdatePayload) {
+	if settingsPayload.Settings.MaxPlayers < len(r.players) {
+		return
+	}
+
+	ok := true
+	if settingsPayload.Settings.PlaylistId != r.settings.PlaylistId {
+		playlistData, err := r.spotifyApi.FetchPlaylistData(settingsPayload.Settings.PlaylistId, settingsPayload.Token)
+		if err != nil {
+			ok = false
+			fblog.Error(component.Room, "failed to change playlist", "roomId", r.id, "err", err)
+			var fbErr *feelbeaterror.FeelBeatError
+			if errors.As(err, &fbErr) {
+
+				r.snd <- messages.ServerMessage{
+					Type:    messages.ServerError,
+					To:      []string{from},
+					Payload: fbErr.UserMessage,
+				}
+			}
+		}
+
+		r.playlist = playlistData
+
+	}
+
+	if ok {
+		r.settings = settingsPayload.Settings
+		fblog.Info(component.Room, "settings updated", "roomId", r.id, "settings", r.settings)
+
+		for _, player := range r.players {
+			r.snd <- r.packIntialState(player.profile.Id)
+		}
+	} else {
+		r.snd <- r.packIntialState(from)
+	}
+
 }
 
 func (r *Room) sendToAllExcept(id string, messageType messages.ServerMessageType, payload interface{}) {

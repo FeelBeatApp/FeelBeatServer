@@ -18,6 +18,13 @@ func (r *Room) processMessages() {
 			}
 		case messages.LeavingPlayer:
 			r.removePlayer(message.From)
+		case messages.SettingsUpdate:
+			payload, ok := message.Payload.(messages.SettingsUpdatePayload)
+			if !ok {
+				logIncorrectPayload("Incorrect payload in settings update", message.Payload, message.From)
+			} else {
+				r.updateSettings(message.From, payload)
+			}
 		default:
 			fblog.Warn(component.Room, "Received unexpected message", "room", r.id, "from", message.From, "type", message.Type, "payload", message.Payload)
 		}

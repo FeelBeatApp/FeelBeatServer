@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/buger/jsonparser"
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/fblog"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/component"
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/feelbeaterror"
@@ -122,16 +123,46 @@ func (h *WSHub) passMessages(ctx context.Context, wg *sync.WaitGroup, from strin
 				h.unregister <- from
 				return
 			}
-			var message messages.ClientMessage
-			err := json.Unmarshal(bytes, &message)
+
+			msgType, err := jsonparser.GetString(bytes, "type")
 			if err != nil {
 				fblog.Error(component.Hub, "Failed to parse client message", "err", err)
+				continue
 			}
-			message.From = from
+			payload, _, _, err := jsonparser.Get(bytes, "payload")
+			if err != nil {
+				fblog.Error(component.Hub, "Failed to parse client message", "err", err)
+				continue
+			}
 
-			h.rcv <- message
+			h.rcv <- decodeMessage(from, msgType, payload)
 		case <-ctx.Done():
 			return
+		}
+	}
+}
+
+func decodeMessage(from string, msgType string, payload []byte) messages.ClientMessage {
+	var settingsUpdate messages.SettingsUpdatePayload
+
+	var err error
+	var result interface{}
+	switch msgType {
+	case messages.SettingsUpdate:
+		err = json.Unmarshal(payload, &settingsUpdate)
+		result = settingsUpdate
+	}
+
+	if err != nil {
+		return messages.ClientMessage{
+			From: from,
+			Type: messages.ClientMessageType(msgType),
+		}
+	} else {
+		return messages.ClientMessage{
+			From:    from,
+			Type:    messages.ClientMessageType(msgType),
+			Payload: result,
 		}
 	}
 }

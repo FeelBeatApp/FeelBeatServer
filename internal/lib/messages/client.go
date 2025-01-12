@@ -5,16 +5,22 @@ import "github.com/feelbeatapp/feelbeatserver/internal/lib"
 type ClientMessageType string
 
 const (
-	JoiningPlayer = "JOIN"
-	LeavingPlayer = "LEAVE"
+	JoiningPlayer  = "JOIN"
+	LeavingPlayer  = "LEAVE"
+	SettingsUpdate = "SETTINGS_UPDATE"
 )
 
 type ClientMessage struct {
 	Type    ClientMessageType `json:"type"`
-	From    string
-	Payload interface{} `json:"payload"`
+	From    string            `json:"-"`
+	Payload interface{}       `json:"payload"`
 }
 
 type JoiningPlayerPayload struct {
 	User lib.UserProfile
+}
+
+type SettingsUpdatePayload struct {
+	Token    string           `json:"token"`
+	Settings lib.RoomSettings `json:"settings"`
 }
