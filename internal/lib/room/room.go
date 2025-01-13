@@ -20,7 +20,7 @@ type Room struct {
 	playlist   lib.PlaylistData
 	owner      lib.UserProfile
 	settings   lib.RoomSettings
-	players    map[string]Player
+	players    map[string]*Player
 	readyMap   map[string]bool
 	stage      RoomStage
 	hub        messages.Hub
@@ -29,10 +29,17 @@ type Room struct {
 	onCleanup  func(*Room)
 	spotifyApi lib.SpotifyApi
 	audio      audioprovider.AudioProvider
+	game       gameState
 }
 
 type Player struct {
 	profile lib.UserProfile
+	points  int
+}
+
+type gameState struct {
+	turn       int
+	pickedSong *lib.Song
 }
 
 func NewRoom(id string,
@@ -49,7 +56,7 @@ func NewRoom(id string,
 		playlist:   playlist,
 		owner:      owner,
 		settings:   settings,
-		players:    make(map[string]Player),
+		players:    make(map[string]*Player),
 		readyMap:   make(map[string]bool),
 		stage:      LobbyStage,
 		hub:        hub,
@@ -57,6 +64,10 @@ func NewRoom(id string,
 		spotifyApi: spotifyApi,
 		audio:      audio,
 		onCleanup:  onCleanup,
+		game: gameState{
+			turn:       0,
+			pickedSong: nil,
+		},
 	}
 }
 
@@ -103,8 +114,9 @@ func (r *Room) addPlayer(profile lib.UserProfile) {
 		return
 	}
 
-	r.players[profile.Id] = Player{
+	r.players[profile.Id] = &Player{
 		profile: profile,
+		points:  0,
 	}
 
 	fblog.Info(component.Room, "new player", "roomId", r.id, "userId", profile.Id)
@@ -264,11 +276,10 @@ func (r *Room) broadcastRoomStage(stage RoomStage) {
 }
 
 func (r *Room) provideSong() {
-	var pickedSong lib.Song
 	var url string
 	for {
-		pickedSong = r.playlist.Songs[rand.IntN(len(r.playlist.Songs))]
-		u, err := r.audio.GetUrl(pickedSong.Details)
+		r.game.pickedSong = &r.playlist.Songs[rand.IntN(len(r.playlist.Songs))]
+		u, err := r.audio.GetUrl(r.game.pickedSong.Details)
 		url = u
 		if err == nil {
 			break
@@ -288,7 +299,44 @@ func (r *Room) provideSong() {
 		Payload: messages.PlaySongPayload{
 			Url:       url,
 			Timestamp: start.Unix(),
-			Duration:  pickedSong.Details.Duration.Milliseconds(),
+			Duration:  r.game.pickedSong.Details.Duration.Milliseconds(),
+		},
+	}
+}
+
+func (r *Room) verifyGuess(from string, guess string, points int) {
+	if r.stage != GameStage || r.game.pickedSong == nil {
+		return
+	}
+
+	correct := false
+	receivedPoints := points
+
+	if r.game.pickedSong.Id == guess {
+		r.players[from].points += points
+		receivedPoints = points
+		correct = true
+	} else {
+		r.players[from].points -= r.settings.IncorrectGuessPenalty
+		receivedPoints = -r.settings.IncorrectGuessPenalty
+		correct = false
+	}
+
+	r.sendToAllExcept(from, messages.PlayerGuess, messages.PlayerGuessPayload{
+		Correct:  correct,
+		Points:   receivedPoints,
+		PlayerId: from,
+		SongId:   "",
+	})
+
+	r.snd <- messages.ServerMessage{
+		Type: messages.PlayerGuess,
+		To:   []string{from},
+		Payload: messages.PlayerGuessPayload{
+			Correct:  correct,
+			Points:   receivedPoints,
+			PlayerId: from,
+			SongId:   guess,
 		},
 	}
 }

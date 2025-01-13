@@ -9,6 +9,7 @@ const (
 	LeavingPlayer  = "LEAVE"
 	SettingsUpdate = "SETTINGS_UPDATE"
 	ReadyStatus    = "READY_STATUS"
+	GuessSong      = "GUESS_SONG"
 )
 
 type ClientMessage struct {
@@ -24,4 +25,9 @@ type JoiningPlayerPayload struct {
 type SettingsUpdatePayload struct {
 	Token    string           `json:"token"`
 	Settings lib.RoomSettings `json:"settings"`
+}
+
+type GuessSongPayload struct {
+	Id     string `json:"id"`
+	Points int    `json:"points"`
 }

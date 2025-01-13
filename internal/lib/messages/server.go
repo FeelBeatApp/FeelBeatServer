@@ -32,6 +32,7 @@ const (
 	RoomStage      = "ROOM_STAGE"
 	PlayerReady    = "PLAYER_READY"
 	PlaySong       = "PLAY_SONG"
+	PlayerGuess    = "PLAYER_GUESS"
 )
 
 type InitialGameState struct {
@@ -72,4 +73,11 @@ type PlaySongPayload struct {
 	Url       string `json:"url"`
 	Timestamp int64  `json:"timestamp"`
 	Duration  int64  `json:"duration"`
+}
+
+type PlayerGuessPayload struct {
+	Correct  bool   `json:"correct"`
+	Points   int    `json:"points"`
+	PlayerId string `json:"playerId"`
+	SongId   string `json:"songId"`
 }

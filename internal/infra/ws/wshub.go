@@ -144,6 +144,7 @@ func (h *WSHub) passMessages(ctx context.Context, wg *sync.WaitGroup, from strin
 
 func decodeMessage(from string, msgType string, payload []byte) messages.ClientMessage {
 	var settingsUpdate messages.SettingsUpdatePayload
+	var guess messages.GuessSongPayload
 
 	var err error
 	var result interface{}
@@ -153,6 +154,9 @@ func decodeMessage(from string, msgType string, payload []byte) messages.ClientM
 		result = settingsUpdate
 	case messages.ReadyStatus:
 		result, err = jsonparser.GetBoolean(payload)
+	case messages.GuessSong:
+		err = json.Unmarshal(payload, &guess)
+		result = guess
 	}
 
 	if err != nil {

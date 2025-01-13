@@ -31,6 +31,12 @@ func (r *Room) processMessages() {
 			} else {
 				logIncorrectPayload("Incorrect paylod in ready status", message.Payload, message.From)
 			}
+		case messages.GuessSong:
+			if payload, ok := message.Payload.(messages.GuessSongPayload); ok {
+				r.verifyGuess(message.From, payload.Id, payload.Points)
+			} else {
+				logIncorrectPayload("Incorrect paylod in ready status", message.Payload, message.From)
+			}
 		default:
 			fblog.Warn(component.Room, "Received unexpected message", "room", r.id, "from", message.From, "type", message.Type, "payload", message.Payload)
 		}
