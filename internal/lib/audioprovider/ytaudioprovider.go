@@ -3,7 +3,6 @@ package audioprovider
 import (
 	"context"
 	"fmt"
-	"sort"
 	"time"
 
 	"github.com/feelbeatapp/feelbeatserver/internal/infra/fblog"
@@ -64,9 +63,17 @@ func (y YTAudioProvider) pickYoutubeVideo(song lib.SongDetails) (string, error) 
 		})
 	}
 
-	sort.Slice(deltas, func(i, j int) bool {
-		return deltas[i].delta < deltas[j].delta
-	})
+	// sort.Slice(deltas, func(i, j int) bool {
+	// 	return deltas[i].delta < deltas[j].delta
+	// })
+
+	for _, d := range deltas {
+		fmt.Println(d.result.Title)
+		fmt.Println(d.result.Duration)
+		fmt.Println(d.delta)
+		fmt.Println(song.Duration)
+		fmt.Println("----")
+	}
 
 	return deltas[0].result.VideoId, nil
 }

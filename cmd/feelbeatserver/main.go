@@ -47,5 +47,5 @@ func main() {
 	setupAPI(auth.AuthorizeThroughSpotify, roomRepo)
 
 	fblog.Info(component.FeelBeatServer, "Server started", "port", port)
-	log.Fatal(http.ListenAndServe(fmt.Sprintf("localhost:%d", port), nil))
+	log.Fatal(http.ListenAndServe(fmt.Sprintf("0.0.0.0:%d", port), nil))
 }

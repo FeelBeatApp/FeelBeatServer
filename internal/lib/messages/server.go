@@ -71,4 +71,5 @@ type PlayerReadyPayload struct {
 type PlaySongPayload struct {
 	Url       string `json:"url"`
 	Timestamp int64  `json:"timestamp"`
+	Duration  int64  `json:"duration"`
 }

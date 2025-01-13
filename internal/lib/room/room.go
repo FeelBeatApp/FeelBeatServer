@@ -13,7 +13,7 @@ import (
 	"github.com/feelbeatapp/feelbeatserver/internal/lib/messages"
 )
 
-const songPlayDelay = time.Second * 5
+const songPlayDelay = time.Second * 3
 
 type Room struct {
 	id         string
@@ -182,7 +182,7 @@ func (r *Room) removePlayer(id string) {
 		},
 	}
 
-	if r.allReady() {
+	if r.stage == LobbyStage && r.allReady() {
 		r.broadcastRoomStage(GameStage)
 		r.provideSong()
 	}
@@ -275,12 +275,12 @@ func (r *Room) provideSong() {
 		}
 	}
 
-	start := time.Now().Add(songPlayDelay)
-
 	recipents := make([]string, 0)
 	for _, p := range r.players {
 		recipents = append(recipents, p.profile.Id)
 	}
+
+	start := time.Now().Add(songPlayDelay)
 
 	r.snd <- messages.ServerMessage{
 		To:   recipents,
@@ -288,6 +288,7 @@ func (r *Room) provideSong() {
 		Payload: messages.PlaySongPayload{
 			Url:       url,
 			Timestamp: start.Unix(),
+			Duration:  pickedSong.Details.Duration.Milliseconds(),
 		},
 	}
 }
