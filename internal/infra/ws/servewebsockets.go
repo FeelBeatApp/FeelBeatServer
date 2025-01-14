@@ -46,7 +46,7 @@ func (w WSHandler) websocketHandler(user auth.User, res http.ResponseWriter, req
 		return
 	}
 
-	userSocket := messages.NewUserSocket(newSocketClient(conn), user)
+	userSocket := messages.NewUserClient(newSocketClient(conn), user)
 	err = room.Hub().Register(userSocket)
 	if err != nil {
 		http.Error(res, feelbeaterror.RoomNotFound, feelbeaterror.StatusCode(feelbeaterror.RoomNotFound))
