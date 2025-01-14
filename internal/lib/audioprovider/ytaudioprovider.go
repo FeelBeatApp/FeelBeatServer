@@ -67,13 +67,12 @@ func (y YTAudioProvider) pickYoutubeVideo(song lib.SongDetails) (string, error) 
 	// 	return deltas[i].delta < deltas[j].delta
 	// })
 
-	for _, d := range deltas {
-		fmt.Println(d.result.Title)
-		fmt.Println(d.result.Duration)
-		fmt.Println(d.delta)
-		fmt.Println(song.Duration)
-		fmt.Println("----")
-	}
+	d := deltas[0]
+	fmt.Println(d.result.Title)
+	fmt.Println(d.result.Duration)
+	fmt.Println(d.delta)
+	fmt.Println(song.Duration)
+	fmt.Println("----")
 
 	return deltas[0].result.VideoId, nil
 }

@@ -33,6 +33,8 @@ const (
 	PlayerReady    = "PLAYER_READY"
 	PlaySong       = "PLAY_SONG"
 	PlayerGuess    = "PLAYER_GUESS"
+	CorrectSong    = "CORRECT_SONG"
+	EndGame        = "END_GAME"
 )
 
 type InitialGameState struct {
@@ -80,4 +82,13 @@ type PlayerGuessPayload struct {
 	Points   int    `json:"points"`
 	PlayerId string `json:"playerId"`
 	SongId   string `json:"songId"`
+}
+
+type EndGamePayload struct {
+	Results []PlayerResult `json:"results"`
+}
+
+type PlayerResult struct {
+	Profile lib.UserProfile `json:"profile"`
+	Points  int             `json:"points"`
 }

@@ -35,6 +35,7 @@ type Room struct {
 type Player struct {
 	profile lib.UserProfile
 	points  int
+	guessed bool
 }
 
 type gameState struct {
@@ -117,6 +118,7 @@ func (r *Room) addPlayer(profile lib.UserProfile) {
 	r.players[profile.Id] = &Player{
 		profile: profile,
 		points:  0,
+		guessed: false,
 	}
 
 	fblog.Info(component.Room, "new player", "roomId", r.id, "userId", profile.Id)
@@ -197,6 +199,34 @@ func (r *Room) removePlayer(id string) {
 	if r.stage == LobbyStage && r.allReady() {
 		r.broadcastRoomStage(GameStage)
 		r.provideSong()
+	}
+
+	if r.stage == GameStage && r.guessCount() == len(r.players) {
+		r.finishTurn()
+		if r.game.turn == r.settings.TurnCount {
+			r.endGame()
+			return
+		}
+		r.provideSong()
+	}
+
+}
+
+func (r *Room) guessCount() int {
+	c := 0
+	for _, p := range r.players {
+		if p.guessed {
+			c++
+		}
+	}
+
+	return c
+}
+
+func (r *Room) finishTurn() {
+	r.game.turn++
+	for _, p := range r.players {
+		p.guessed = false
 	}
 }
 
@@ -309,17 +339,22 @@ func (r *Room) verifyGuess(from string, guess string, points int) {
 		return
 	}
 
-	correct := false
-	receivedPoints := points
+	var correct bool
+	var receivedPoints int
 
-	if r.game.pickedSong.Id == guess {
-		r.players[from].points += points
-		receivedPoints = points
-		correct = true
-	} else {
-		r.players[from].points -= r.settings.IncorrectGuessPenalty
-		receivedPoints = -r.settings.IncorrectGuessPenalty
+	if points == 0 {
 		correct = false
+		receivedPoints = 0
+	} else {
+		if r.game.pickedSong.Id == guess {
+			r.players[from].points += points
+			receivedPoints = points
+			correct = true
+		} else {
+			r.players[from].points -= r.settings.IncorrectGuessPenalty
+			receivedPoints = -r.settings.IncorrectGuessPenalty
+			correct = false
+		}
 	}
 
 	r.sendToAllExcept(from, messages.PlayerGuess, messages.PlayerGuessPayload{
@@ -329,16 +364,65 @@ func (r *Room) verifyGuess(from string, guess string, points int) {
 		SongId:   "",
 	})
 
+	if points == 0 {
+		r.snd <- messages.ServerMessage{
+			Type:    messages.CorrectSong,
+			To:      []string{from},
+			Payload: r.game.pickedSong.Id,
+		}
+	} else {
+		r.snd <- messages.ServerMessage{
+			Type: messages.PlayerGuess,
+			To:   []string{from},
+			Payload: messages.PlayerGuessPayload{
+				Correct:  correct,
+				Points:   receivedPoints,
+				PlayerId: from,
+				SongId:   guess,
+			},
+		}
+	}
+
+	if points == 0 || correct {
+		r.players[from].guessed = true
+
+		if r.guessCount() == len(r.players) {
+			r.finishTurn()
+
+			if r.game.turn == r.settings.TurnCount {
+				r.endGame()
+				return
+			}
+
+			r.provideSong()
+		}
+	}
+}
+
+func (r *Room) endGame() {
+	recipents := make([]string, 0)
+	results := make([]messages.PlayerResult, 0)
+	for _, p := range r.players {
+		recipents = append(recipents, p.profile.Id)
+		results = append(results, messages.PlayerResult{
+			Profile: p.profile,
+			Points:  p.points,
+		})
+		r.readyMap[p.profile.Id] = false
+	}
+
+	time.Sleep(time.Second * 3)
 	r.snd <- messages.ServerMessage{
-		Type: messages.PlayerGuess,
-		To:   []string{from},
-		Payload: messages.PlayerGuessPayload{
-			Correct:  correct,
-			Points:   receivedPoints,
-			PlayerId: from,
-			SongId:   guess,
+		Type: messages.EndGame,
+		To:   recipents,
+		Payload: messages.EndGamePayload{
+			Results: results,
 		},
 	}
+
+	r.stage = LobbyStage
+	r.game.turn = 0
+	r.game.pickedSong = nil
 }
 
 func (r *Room) sendToAllExcept(id string, messageType messages.ServerMessageType, payload interface{}) {
